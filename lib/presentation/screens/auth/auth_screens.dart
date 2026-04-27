@@ -7,7 +7,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../controllers/auth_controller.dart';
 import '../../widgets/shared_widgets.dart';
 
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -70,8 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () =>
-                            Get.toNamed(AppRoutes.forgotPassword),
+                        onPressed: () => Get.toNamed(AppRoutes.forgotPassword),
                         child: const Text(
                           'Forget Password?',
                           style: TextStyle(color: AppColors.accent),
@@ -84,8 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           isLoading: _auth.isLoading.value,
                           onTap: () {
                             if (_formKey.currentState!.validate()) {
-                              _auth.login(
-                                  _emailCtrl.text.trim(),
+                              _auth.login(_emailCtrl.text.trim(),
                                   _passCtrl.text.trim());
                             }
                           },
@@ -112,7 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         _SocialBtn(icon: Icons.apple, onTap: () {}),
                         const SizedBox(width: 16),
-                        _SocialBtn(icon: Icons.g_mobiledata_rounded, onTap: () {}),
+                        _SocialBtn(
+                            icon: Icons.g_mobiledata_rounded, onTap: () {}),
                         const SizedBox(width: 16),
                         _SocialBtn(icon: Icons.facebook, onTap: () {}),
                       ],
@@ -243,9 +241,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icons.lock_outline,
                       suffixIcon: GestureDetector(
                         onTap: () => setState(() => _obscure = !_obscure),
-                        child: Icon(_obscure
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
+                        child: Icon(
+                            _obscure
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                             color: AppColors.textHint),
                       ),
                       validator: (v) =>
@@ -260,9 +259,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icons.lock_outline,
                       suffixIcon: GestureDetector(
                         onTap: () => setState(() => _reObscure = !_reObscure),
-                        child: Icon(_reObscure
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
+                        child: Icon(
+                            _reObscure
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                             color: AppColors.textHint),
                       ),
                       validator: (v) =>
@@ -332,7 +332,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         children: [
           const AuthHeader(
             title: 'Forget Password?',
-            subtitle: 'Enter your email and we will send you reset instructions.',
+            subtitle:
+                'Enter your email and we will send you reset instructions.',
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -347,10 +348,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.08),
+                        color: AppColors.accent.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(32),
                         border: Border.all(
-                            color: AppColors.accent.withOpacity(0.2)),
+                            color: AppColors.accent.withValues(alpha: 0.2)),
                       ),
                       child: Stack(
                         alignment: Alignment.center,

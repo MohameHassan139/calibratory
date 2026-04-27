@@ -1,11 +1,18 @@
-// lib/presentation/screens/calibration/public_data_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../data/models/models.dart';
 import '../../controllers/calibration_controller.dart';
-import '../../widgets/shared_widgets.dart';
+import '../../widgets/auth/custom_text_field.dart';
+import '../../widgets/calibration/calibration_step_bar.dart';
+import '../../widgets/calibration/section_card.dart';
+import '../../widgets/calibration/date_field.dart';
+import '../../widgets/calibration/qual_row.dart';
+import '../../widgets/calibration/table_preview.dart';
+import '../../widgets/calibration/measurement_table.dart';
+
+// ── Public Data Screen ────────────────────────────────────────────────────────
 
 class PublicDataScreen extends StatefulWidget {
   const PublicDataScreen({super.key});
@@ -53,7 +60,7 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
               'SPO2',
               'NIBP',
               'Respiration',
-              'Temperature'
+              'Temperature',
             ],
           ),
         ),
@@ -65,7 +72,7 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SectionCard(
+              SectionCard(
                 title: 'Customer Data',
                 icon: Icons.person_outline,
                 children: [
@@ -79,7 +86,7 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: _DateField(
+                        child: DateField(
                           label: 'Order Date',
                           date: _orderDate,
                           onTap: () => _pickDate(true),
@@ -87,7 +94,7 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _DateField(
+                        child: DateField(
                           label: 'Visit Date',
                           date: _visitDate,
                           onTap: () => _pickDate(false),
@@ -105,7 +112,7 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              _SectionCard(
+              SectionCard(
                 title: 'Monitor Data',
                 icon: Icons.monitor_heart_outlined,
                 children: [
@@ -175,7 +182,7 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
   }
 }
 
-// ── Qualitative Test Screen ──────────────────────────────────────────────────
+// ── Qualitative Test Screen ───────────────────────────────────────────────────
 
 class QualitativeTestScreen extends StatefulWidget {
   const QualitativeTestScreen({super.key});
@@ -204,7 +211,6 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
   void _next() {
     _ctrl.updateQualitative(_results);
     _ctrl.updateEcgRepresentation(_ecgResults);
-    // Navigate based on cable availability
     final s = _ctrl.session.value!;
     if (s.showHrTable) {
       Get.toNamed(AppRoutes.calibrationHR);
@@ -238,7 +244,7 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
               'SPO2',
               'NIBP',
               'Respiration',
-              'Temperature'
+              'Temperature',
             ],
           ),
         ),
@@ -247,13 +253,14 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Info card
+            // Info banner
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.info.withOpacity(0.08),
+                color: AppColors.info.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.info.withOpacity(0.2)),
+                border:
+                    Border.all(color: AppColors.info.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -264,54 +271,46 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
                     child: Text(
                       'Select Pass / Fail / N/A for each item. Cable availability determines which measurement tables will be shown.',
                       style: TextStyle(
-                          fontSize: 12, color: AppColors.info.withOpacity(0.9)),
+                          fontSize: 12,
+                          color: AppColors.info.withValues(alpha: 0.9)),
                     ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            _SectionCard(
+            SectionCard(
               title: 'Qualitative Test',
               icon: Icons.checklist_outlined,
               children: MonitorConstants.qualitativeItems
-                  .map((item) => _QualRow(
+                  .map((item) => QualRow(
                         item: item,
                         value: _results[item]!,
                         onChanged: (v) => setState(() => _results[item] = v),
                       ))
                   .toList(),
             ),
-
             const SizedBox(height: 16),
-
-            _SectionCard(
+            SectionCard(
               title: 'ECG Representation',
               icon: Icons.monitor_heart_outlined,
               children: MonitorConstants.ecgRepresentationItems
-                  .map((item) => _QualRow(
+                  .map((item) => QualRow(
                         item: item,
                         value: _ecgResults[item]!,
                         onChanged: (v) => setState(() => _ecgResults[item] = v),
                       ))
                   .toList(),
             ),
-
             const SizedBox(height: 28),
-
-            // Preview which tables will show
-            _ctrl.session.value != null
-                ? _TablePreview(
-                    showHR: _ctrl.session.value!.showHrTable,
-                    showSPO2: _ctrl.session.value!.showSpo2Table,
-                    showNIBP: _ctrl.session.value!.showNibpTable,
-                    showResp: _ctrl.session.value!.showRespirationTable,
-                    showTemp: _ctrl.session.value!.showTempTables,
-                  )
-                : const SizedBox(),
-
+            if (_ctrl.session.value != null)
+              TablePreview(
+                showHR: _ctrl.session.value!.showHrTable,
+                showSPO2: _ctrl.session.value!.showSpo2Table,
+                showNIBP: _ctrl.session.value!.showNibpTable,
+                showResp: _ctrl.session.value!.showRespirationTable,
+                showTemp: _ctrl.session.value!.showTempTables,
+              ),
             const SizedBox(height: 28),
             SizedBox(
               width: double.infinity,
@@ -327,173 +326,7 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
   }
 }
 
-class _QualRow extends StatelessWidget {
-  final String item;
-  final ItemStatus value;
-  final ValueChanged<ItemStatus> onChanged;
-  const _QualRow(
-      {required this.item, required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(item,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textPrimary)),
-          ),
-          _StatusToggle(value: value, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusToggle extends StatelessWidget {
-  final ItemStatus value;
-  final ValueChanged<ItemStatus> onChanged;
-  const _StatusToggle({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: ItemStatus.values.map((s) {
-        final isSelected = s == value;
-        Color color;
-        switch (s) {
-          case ItemStatus.pass:
-            color = AppColors.success;
-            break;
-          case ItemStatus.fail:
-            color = AppColors.error;
-            break;
-          case ItemStatus.notAvailable:
-            color = AppColors.textHint;
-            break;
-        }
-        return GestureDetector(
-          onTap: () => onChanged(s),
-          child: Container(
-            margin: const EdgeInsets.only(left: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: isSelected ? color.withOpacity(0.15) : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isSelected ? color : AppColors.border,
-                width: isSelected ? 1.5 : 1,
-              ),
-            ),
-            child: Text(
-              s.label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                color: isSelected ? color : AppColors.textHint,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _TablePreview extends StatelessWidget {
-  final bool showHR, showSPO2, showNIBP, showResp, showTemp;
-  const _TablePreview(
-      {required this.showHR,
-      required this.showSPO2,
-      required this.showNIBP,
-      required this.showResp,
-      required this.showTemp});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Tables to be measured:',
-            style: TextStyle(
-              fontFamily: 'Syne',
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _PreviewChip(label: 'Heart Rate', visible: showHR),
-              _PreviewChip(label: 'SPO2', visible: showSPO2),
-              _PreviewChip(label: 'NIBP', visible: showNIBP),
-              _PreviewChip(label: 'Respiration', visible: showResp),
-              _PreviewChip(label: 'Temperature', visible: showTemp),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PreviewChip extends StatelessWidget {
-  final String label;
-  final bool visible;
-  const _PreviewChip({required this.label, required this.visible});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: visible
-            ? AppColors.success.withOpacity(0.1)
-            : AppColors.error.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: visible
-              ? AppColors.success.withOpacity(0.3)
-              : AppColors.error.withOpacity(0.2),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            visible ? Icons.check_rounded : Icons.block_rounded,
-            size: 12,
-            color: visible ? AppColors.success : AppColors.error,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: visible ? AppColors.success : AppColors.error,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Measurement Table Screen (generic) ───────────────────────────────────────
+// ── Generic Measurement Table Screen ─────────────────────────────────────────
 
 class MeasurementTableScreen extends StatefulWidget {
   final String title;
@@ -525,14 +358,11 @@ class MeasurementTableScreen extends StatefulWidget {
 
 class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
   late List<MeasurementRow> rows;
-  // Controllers: each row has up to 3 controllers (app uses 3 reads based on excel pattern)
   late List<List<TextEditingController>> controllers;
-  final CalibrationController _ctrl = Get.find();
 
   @override
   void initState() {
     super.initState();
-    // Init rows from settings
     rows = widget.settings
         .map((s) => MeasurementRow(settingValue: s, reads: []))
         .toList();
@@ -562,7 +392,6 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
   @override
   Widget build(BuildContext context) {
     if (!widget.isVisible) {
-      // Auto-skip: mark NF and go next
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onSave(rows);
         Get.toNamed(widget.nextRoute);
@@ -585,7 +414,7 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
               'SPO2',
               'NIBP',
               'Respiration',
-              'Temperature'
+              'Temperature',
             ],
           ),
         ),
@@ -597,14 +426,14 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Table header info
+                  // Info banner
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withOpacity(0.06),
+                      color: AppColors.accent.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(14),
-                      border:
-                          Border.all(color: AppColors.accent.withOpacity(0.15)),
+                      border: Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.15)),
                     ),
                     child: Row(
                       children: [
@@ -613,17 +442,16 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Enter 3 readings for each setting value. The average will be computed automatically and compared to the accepted range.',
+                            'Enter 3 readings for each setting value. The average will be computed automatically.',
                             style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.accent.withOpacity(0.9)),
+                                color: AppColors.accent.withValues(alpha: 0.9)),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   // Table
                   Container(
                     decoration: BoxDecoration(
@@ -645,21 +473,21 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                           ),
                           child: Row(
                             children: [
-                              _HeaderCell('Set (${widget.unit})', 1.2),
-                              const _HeaderCell('Read 1', 1),
-                              const _HeaderCell('Read 2', 1),
-                              const _HeaderCell('Read 3', 1),
-                              const _HeaderCell('Avg', 1),
-                              const _HeaderCell('Range', 1.5),
-                              const _HeaderCell('Status', 0.9),
+                              TableHeaderCell('Set (${widget.unit})', 1.2),
+                              const TableHeaderCell('Read 1', 1),
+                              const TableHeaderCell('Read 2', 1),
+                              const TableHeaderCell('Read 3', 1),
+                              const TableHeaderCell('Avg', 1),
+                              const TableHeaderCell('Range', 1.5),
+                              const TableHeaderCell('Status', 0.9),
                             ],
                           ),
                         ),
-                        // Rows
+                        // Data rows
                         ...List.generate(rows.length, (i) {
                           final range =
                               widget.acceptedRangeFunc(rows[i].settingValue);
-                          return _MeasRow(
+                          return MeasurementTableRow(
                             settingValue: rows[i].settingValue,
                             controllers: controllers[i],
                             rangeStr:
@@ -697,269 +525,6 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                 onPressed: _computeAndSave,
                 child: const Text('Next'),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderCell extends StatelessWidget {
-  final String text;
-  final double flex;
-  const _HeaderCell(this.text, this.flex);
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: (flex * 10).toInt(),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Syne',
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textWhite,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-}
-
-class _MeasRow extends StatelessWidget {
-  final double settingValue;
-  final List<TextEditingController> controllers;
-  final String rangeStr;
-  final double? avg;
-  final bool? status;
-  final bool isLast;
-  final VoidCallback onChanged;
-
-  const _MeasRow({
-    required this.settingValue,
-    required this.controllers,
-    required this.rangeStr,
-    required this.avg,
-    required this.status,
-    required this.isLast,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : const Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            // Setting value
-            Expanded(
-              flex: 12,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                color: AppColors.surfaceVariant,
-                child: Text(
-                  settingValue.toStringAsFixed(0),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: AppColors.textPrimary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-            // Read inputs
-            ...List.generate(
-                3,
-                (i) => Expanded(
-                      flex: 10,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          border:
-                              Border(left: BorderSide(color: AppColors.border)),
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: TextField(
-                          controller: controllers[i],
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 13),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            hintText: '-',
-                            hintStyle: TextStyle(
-                                fontSize: 12, color: AppColors.textHint),
-                            contentPadding: EdgeInsets.zero,
-                            filled: false,
-                          ),
-                          onChanged: (_) => onChanged(),
-                        ),
-                      ),
-                    )),
-            // Average
-            Expanded(
-              flex: 10,
-              child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(left: BorderSide(color: AppColors.border)),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: Text(
-                  avg != null ? avg!.toStringAsFixed(2) : '-',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-            // Range
-            Expanded(
-              flex: 15,
-              child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(left: BorderSide(color: AppColors.border)),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: Text(
-                  rangeStr,
-                  style: const TextStyle(
-                      fontSize: 10, color: AppColors.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-            // Status
-            Expanded(
-              flex: 9,
-              child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(left: BorderSide(color: AppColors.border)),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: status == null
-                    ? const Text('-',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.textHint))
-                    : Icon(
-                        status! ? Icons.check_circle : Icons.cancel,
-                        color: status! ? AppColors.success : AppColors.error,
-                        size: 18,
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Helper section card ───────────────────────────────────────────────────────
-
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final List<Widget> children;
-  const _SectionCard(
-      {required this.title, required this.icon, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: AppColors.accent, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Text(title,
-                    style: const TextStyle(
-                      fontFamily: 'Syne',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    )),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(height: 24),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(children: children),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  final String label;
-  final DateTime date;
-  final VoidCallback onTap;
-  const _DateField(
-      {required this.label, required this.date, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(
-                fontFamily: 'DMSans',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              )),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_today_outlined,
-                    size: 16, color: AppColors.textHint),
-                const SizedBox(width: 8),
-                Text(
-                  '${date.day}/${date.month}/${date.year}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
             ),
           ),
         ],
