@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "384729302768",
+    "project_id": "learn-c2ce0",
+    "storage_bucket": "learn-c2ce0.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:384729302768:android:1d1b1cdf431168fd4e6435",
+        "android_client_info": {
+          "package_name": "com.example.calibratory"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "384729302768-p83vm3jmp80r91qt9imih52a35i9v7jm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCY8pcOf8ZdOnWkqIcZG1ygb500B32fI-g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "384729302768-p83vm3jmp80r91qt9imih52a35i9v7jm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "384729302768-s10vr0p1rrcrnehmf39td0mdm9e33c5d.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.calibratory"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:384729302768:android:43e449e36cc12a4f4e6435",
+        "android_client_info": {
+          "package_name": "com.example.training"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "384729302768-p83vm3jmp80r91qt9imih52a35i9v7jm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCY8pcOf8ZdOnWkqIcZG1ygb500B32fI-g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "384729302768-p83vm3jmp80r91qt9imih52a35i9v7jm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "384729302768-s10vr0p1rrcrnehmf39td0mdm9e33c5d.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.calibratory"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
