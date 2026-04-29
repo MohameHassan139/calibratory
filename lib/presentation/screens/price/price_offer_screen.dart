@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../controllers/auth_controller.dart';
 import '../../widgets/auth/custom_text_field.dart';
+import '../../services/email_service.dart';
 
 // ── Model ─────────────────────────────────────────────────────────────────────
 
@@ -12,7 +14,6 @@ class _DeviceItem {
   final double functionPrice;
   final double safetyPrice;
 
-  // user selections
   int qty;
   bool functionCheck;
   bool safetyCheck;
@@ -59,6 +60,7 @@ class _PriceOfferScreenState extends State<PriceOfferScreen> {
 
   List<_DeviceItem> _devices = [];
   bool _loading = true;
+  bool _sending = false;
   String? _error;
 
   @override
@@ -89,7 +91,7 @@ class _PriceOfferScreenState extends State<PriceOfferScreen> {
     }
   }
 
-  double get _total => _devices.fold(0, (s, d) => s + d.subtotal);
+  double get _total => _devices.fold(0.0, (s, d) => s + d.subtotal);
 
   void _reset() {
     setState(() {
@@ -103,22 +105,80 @@ class _PriceOfferScreenState extends State<PriceOfferScreen> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     final active = _devices.where((d) => d.qty > 0).toList();
     if (active.isEmpty) {
       Get.snackbar(
-          'Nothing selected', 'Add at least one device with quantity > 0.',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: AppColors.warning,
-          colorText: Colors.white);
+        'Nothing selected',
+        'Add at least one device with quantity > 0.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.warning,
+        colorText: Colors.white,
+      );
       return;
     }
-    // TODO: persist to Firestore / generate PDF
-    Get.snackbar('Offer Saved',
-        'Total: \$${_total.toStringAsFixed(0)} for ${_clientNameCtrl.text.isNotEmpty ? _clientNameCtrl.text : "client"}',
+
+    final email = _clientEmailCtrl.text.trim();
+    final name = _clientNameCtrl.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      Get.snackbar(
+        'Missing email',
+        'Enter a valid client email to send the offer.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.warning,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    setState(() => _sending = true);
+
+    final auth = Get.find<AuthController>();
+    final engineerName = auth.appUser.value?.fullName ?? 'Engineer';
+
+    final items = active
+        .map((d) => {
+              'name': d.name,
+              'qty': d.qty,
+              'functionCheck': d.functionCheck,
+              'safetyCheck': d.safetyCheck,
+              'functionPrice': d.functionPrice,
+              'safetyPrice': d.safetyPrice,
+              'subtotal': d.subtotal,
+            })
+        .toList();
+
+    final ok = await EmailService.sendPriceOfferEmail(
+      toEmail: email,
+      clientName: name.isNotEmpty ? name : email,
+      engineerName: engineerName,
+      total: _total,
+      items: items,
+    );
+
+    setState(() => _sending = false);
+
+    if (ok) {
+      Get.snackbar(
+        'Offer Sent',
+        'Price offer emailed to $email',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: AppColors.success,
-        colorText: Colors.white);
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+      );
+      _reset();
+    } else {
+      Get.snackbar(
+        'Send Failed',
+        'Could not send the email. Check your connection or Cloud Function.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.error,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    }
   }
 
   @override
@@ -132,17 +192,23 @@ class _PriceOfferScreenState extends State<PriceOfferScreen> {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Price Offer',
-                style: TextStyle(
-                    fontFamily: 'Syne',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                    color: AppColors.textPrimary)),
-            Text('Build a maintenance quote',
-                style: TextStyle(
-                    fontFamily: 'DMSans',
-                    fontSize: 11,
-                    color: AppColors.textSecondary)),
+            Text(
+              'Price Offer',
+              style: TextStyle(
+                fontFamily: 'Syne',
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Text(
+              'Build a maintenance quote',
+              style: TextStyle(
+                fontFamily: 'DMSans',
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -166,9 +232,10 @@ class _PriceOfferScreenState extends State<PriceOfferScreen> {
                   onRetry: () {
                     setState(() => _loading = true);
                     _loadDevices();
-                  })
+                  },
+                )
               : _devices.isEmpty
-                  ? _EmptyDevices()
+                  ? const _EmptyDevices()
                   : Column(
                       children: [
                         Expanded(
@@ -182,19 +249,22 @@ class _PriceOfferScreenState extends State<PriceOfferScreen> {
                               const SizedBox(height: 16),
                               const _SectionLabel('Devices'),
                               const SizedBox(height: 10),
-                              ..._devices.map((d) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: _DeviceCard(
-                                      item: d,
-                                      onChanged: () => setState(() {}),
-                                    ),
-                                  )),
+                              ..._devices.map(
+                                (d) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _DeviceCard(
+                                    item: d,
+                                    onChanged: () => setState(() {}),
+                                  ),
+                                ),
+                              ),
                               const SizedBox(height: 8),
                             ],
                           ),
                         ),
                         _TotalBar(
                           total: _total,
+                          sending: _sending,
                           onReset: _reset,
                           onSave: _save,
                         ),
@@ -223,12 +293,15 @@ class _ClientCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Client Info',
-              style: TextStyle(
-                  fontFamily: 'Syne',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: AppColors.textPrimary)),
+          const Text(
+            'Client Info',
+            style: TextStyle(
+              fontFamily: 'Syne',
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: AppColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: 12),
           CustomTextField(
             label: 'Client Name',
@@ -279,7 +352,6 @@ class _DeviceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Row(
             children: [
               Container(
@@ -294,12 +366,15 @@ class _DeviceCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(item.name,
-                    style: const TextStyle(
-                        fontFamily: 'Syne',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: AppColors.textPrimary)),
+                child: Text(
+                  item.name,
+                  style: const TextStyle(
+                    fontFamily: 'Syne',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
               ),
               if (item.subtotal > 0)
                 Container(
@@ -312,40 +387,41 @@ class _DeviceCard extends StatelessWidget {
                   child: Text(
                     '\$${item.subtotal.toStringAsFixed(0)}',
                     style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.accent),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.accent,
+                    ),
                   ),
                 ),
             ],
           ),
           const SizedBox(height: 14),
-
-          // Price chips row
           Row(
             children: [
-              _PriceInfo(
-                  label: 'Function',
-                  price: item.functionPrice,
-                  color: AppColors.accent),
+              _PriceChip(
+                label: 'Function',
+                price: item.functionPrice,
+                color: AppColors.accent,
+              ),
               const SizedBox(width: 8),
-              _PriceInfo(
-                  label: 'Safety',
-                  price: item.safetyPrice,
-                  color: AppColors.success),
+              _PriceChip(
+                label: 'Safety',
+                price: item.safetyPrice,
+                color: AppColors.success,
+              ),
             ],
           ),
           const SizedBox(height: 14),
-
-          // Controls row
           Row(
             children: [
-              // Qty stepper
-              const Text('QTY',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textSecondary)),
+              const Text(
+                'QTY',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const SizedBox(width: 10),
               _QtyField(
                 value: item.qty,
@@ -355,7 +431,6 @@ class _DeviceCard extends StatelessWidget {
                 },
               ),
               const Spacer(),
-              // Checkboxes
               _CheckChip(
                 label: 'Function',
                 value: item.functionCheck,
@@ -381,11 +456,11 @@ class _DeviceCard extends StatelessWidget {
   }
 }
 
-class _PriceInfo extends StatelessWidget {
+class _PriceChip extends StatelessWidget {
   final String label;
   final double price;
   final Color color;
-  const _PriceInfo(
+  const _PriceChip(
       {required this.label, required this.price, required this.color});
 
   @override
@@ -405,6 +480,8 @@ class _PriceInfo extends StatelessWidget {
     );
   }
 }
+
+// ── Qty Field ─────────────────────────────────────────────────────────────────
 
 class _QtyField extends StatefulWidget {
   final int value;
@@ -450,10 +527,11 @@ class _QtyFieldState extends State<_QtyField> {
         keyboardType: TextInputType.number,
         textAlign: TextAlign.center,
         style: const TextStyle(
-            fontFamily: 'Syne',
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-            color: AppColors.textPrimary),
+          fontFamily: 'Syne',
+          fontWeight: FontWeight.w700,
+          fontSize: 14,
+          color: AppColors.textPrimary,
+        ),
         decoration: InputDecoration(
           hintText: '0',
           hintStyle: const TextStyle(color: AppColors.textHint),
@@ -475,6 +553,8 @@ class _QtyFieldState extends State<_QtyField> {
     );
   }
 }
+
+// ── Check Chip ────────────────────────────────────────────────────────────────
 
 class _CheckChip extends StatelessWidget {
   final String label;
@@ -509,9 +589,10 @@ class _CheckChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: value ? Colors.white : AppColors.textSecondary),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: value ? Colors.white : AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -524,10 +605,16 @@ class _CheckChip extends StatelessWidget {
 
 class _TotalBar extends StatelessWidget {
   final double total;
+  final bool sending;
   final VoidCallback onReset;
   final VoidCallback onSave;
-  const _TotalBar(
-      {required this.total, required this.onReset, required this.onSave});
+
+  const _TotalBar({
+    required this.total,
+    required this.sending,
+    required this.onReset,
+    required this.onSave,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -542,19 +629,23 @@ class _TotalBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Text('Total Value',
-                  style: TextStyle(
-                      fontFamily: 'DMSans',
-                      fontSize: 15,
-                      color: AppColors.textSecondary)),
+              const Text(
+                'Total Value',
+                style: TextStyle(
+                  fontFamily: 'DMSans',
+                  fontSize: 15,
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const Spacer(),
               Text(
                 '\$${total.toStringAsFixed(0)}',
                 style: const TextStyle(
-                    fontFamily: 'Syne',
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.accent),
+                  fontFamily: 'Syne',
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.accent,
+                ),
               ),
             ],
           ),
@@ -563,7 +654,7 @@ class _TotalBar extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: onReset,
+                  onPressed: sending ? null : onReset,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.border),
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -577,10 +668,8 @@ class _TotalBar extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.save_outlined, size: 18),
-                  label: const Text('Save Offer'),
-                  onPressed: onSave,
+                child: ElevatedButton(
+                  onPressed: sending ? null : onSave,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
@@ -588,6 +677,21 @@ class _TotalBar extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
+                  child: sending
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.send_rounded, size: 16),
+                            SizedBox(width: 8),
+                            Text('Send Offer'),
+                          ],
+                        ),
                 ),
               ),
             ],
@@ -606,12 +710,15 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text,
-        style: const TextStyle(
-            fontFamily: 'Syne',
-            fontWeight: FontWeight.w700,
-            fontSize: 16,
-            color: AppColors.textPrimary));
+    return Text(
+      text,
+      style: const TextStyle(
+        fontFamily: 'Syne',
+        fontWeight: FontWeight.w700,
+        fontSize: 16,
+        color: AppColors.textPrimary,
+      ),
+    );
   }
 }
 
@@ -631,25 +738,32 @@ class _ErrorView extends StatelessWidget {
             const Icon(Icons.cloud_off_rounded,
                 size: 48, color: AppColors.error),
             const SizedBox(height: 12),
-            const Text('Failed to load devices',
-                style: TextStyle(
-                    fontFamily: 'Syne',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                    color: AppColors.textPrimary)),
+            const Text(
+              'Failed to load devices',
+              style: TextStyle(
+                fontFamily: 'Syne',
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: AppColors.textPrimary,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(error,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.textSecondary)),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary),
+            ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.white),
+                backgroundColor: AppColors.accent,
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -659,6 +773,8 @@ class _ErrorView extends StatelessWidget {
 }
 
 class _EmptyDevices extends StatelessWidget {
+  const _EmptyDevices();
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -675,15 +791,20 @@ class _EmptyDevices extends StatelessWidget {
                 size: 44, color: AppColors.accent),
           ),
           const SizedBox(height: 16),
-          const Text('No devices configured',
-              style: TextStyle(
-                  fontFamily: 'Syne',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 17,
-                  color: AppColors.textPrimary)),
+          const Text(
+            'No devices configured',
+            style: TextStyle(
+              fontFamily: 'Syne',
+              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              color: AppColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: 8),
-          const Text('Add devices in Price Adjustments first.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          const Text(
+            'Add devices in Price Adjustments first.',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
         ],
       ),
     );

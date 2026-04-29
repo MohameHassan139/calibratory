@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Price Offer – UMECC</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:32px 16px;">
+  <tr><td align="center">
+    <table width="640" cellpadding="0" cellspacing="0"
+           style="max-width:640px;width:100%;border-radius:16px;overflow:hidden;
+                  box-shadow:0 4px 24px rgba(0,0,0,0.09);">
+
+      <!-- ══ HEADER ══ -->
+      <tr>
+        <td style="background:#0D1B2A;padding:30px 40px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <!-- UMECC Logo -->
+              <td width="88" valign="middle">
+                <img src="https://drive.google.com/file/d/1NlYdzAcP4lo-GKjokq_q98tLlv93hY_-/view?usp=sharing"
+                     alt="UMECC"
+                     width="80" height="80"
+                     style="border-radius:50%;border:2px solid rgba(255,255,255,0.18);display:block;"/>
+              </td>
+              <!-- Brand -->
+              <td valign="middle" style="padding-left:16px;">
+                <h1 style="margin:0;color:#fff;font-size:22px;font-weight:800;letter-spacing:-0.3px;">
+                  Caliborty
+                </h1>
+                <p style="margin:3px 0 0;color:rgba(255,255,255,0.55);font-size:12px;">
+                  UMECC &middot; وحدة معايرة واستشارات الأجهزة الطبية
+                </p>
+                <p style="margin:2px 0 0;color:rgba(255,255,255,0.3);font-size:11px;">
+                  Faculty of Engineering &middot; Minia University
+                </p>
+              </td>
+              <!-- Date -->
+              <td align="right" valign="top">
+                <div style="background:rgba(255,255,255,0.07);border-radius:10px;
+                            padding:9px 14px;display:inline-block;text-align:right;">
+                  <p style="margin:0;color:rgba(255,255,255,0.4);font-size:10px;
+                            text-transform:uppercase;letter-spacing:1px;">Date</p>
+                  <p style="margin:4px 0 0;color:#fff;font-size:13px;font-weight:600;">
+                    {{offer_date}}
+                  </p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Title band -->
+      <tr>
+        <td style="background:#1565C0;padding:12px 40px;">
+          <p style="margin:0;color:#fff;font-size:13px;font-weight:700;letter-spacing:0.6px;">
+            &#128203;&nbsp; MAINTENANCE PRICE OFFER
+          </p>
+        </td>
+      </tr>
+
+      <!-- ══ BODY ══ -->
+      <tr>
+        <td style="background:#fff;padding:34px 40px;">
+
+          <!-- Greeting -->
+          <p style="margin:0 0 4px;color:#546E7A;font-size:13px;">Dear,</p>
+          <h2 style="margin:0 0 16px;color:#0D1B2A;font-size:20px;font-weight:800;">
+            {{client_name}}
+          </h2>
+          <p style="margin:0 0 26px;color:#546E7A;font-size:14px;line-height:1.7;">
+            Please find below the maintenance price offer prepared by
+            <strong style="color:#0D1B2A;">{{engineer_name}}</strong>.
+            This offer covers the selected devices and service types as detailed in the table below.
+          </p>
+
+          <!-- ── Devices table ── -->
+          <table width="100%" cellpadding="0" cellspacing="0"
+                 style="border:1px solid #DDE3EC;border-radius:12px;
+                        overflow:hidden;margin-bottom:22px;
+                        border-collapse:separate;border-spacing:0;">
+            <thead>
+              <tr style="background:#EEF2F8;">
+                <th style="padding:11px 14px;text-align:left;color:#546E7A;font-size:11px;
+                           text-transform:uppercase;letter-spacing:0.7px;font-weight:700;
+                           border-bottom:1px solid #DDE3EC;">
+                  Device
+                </th>
+                <th style="padding:11px 14px;text-align:center;color:#1565C0;font-size:11px;
+                           text-transform:uppercase;letter-spacing:0.7px;font-weight:700;
+                           border-bottom:1px solid #DDE3EC;">
+                  Function
+                </th>
+                <th style="padding:11px 14px;text-align:center;color:#00897B;font-size:11px;
+                           text-transform:uppercase;letter-spacing:0.7px;font-weight:700;
+                           border-bottom:1px solid #DDE3EC;">
+                  Safety
+                </th>
+                <th style="padding:11px 14px;text-align:center;color:#546E7A;font-size:11px;
+                           text-transform:uppercase;letter-spacing:0.7px;font-weight:700;
+                           border-bottom:1px solid #DDE3EC;">
+                  Qty
+                </th>
+                <th style="padding:11px 14px;text-align:right;color:#546E7A;font-size:11px;
+                           text-transform:uppercase;letter-spacing:0.7px;font-weight:700;
+                           border-bottom:1px solid #DDE3EC;">
+                  Subtotal
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {{{items_rows}}}
+            </tbody>
+          </table>
+
+          <!-- ── Total ── -->
+          <table width="100%" cellpadding="0" cellspacing="0"
+                 style="background:#1565C0;border-radius:12px;margin-bottom:26px;">
+            <tr>
+              <td style="padding:18px 24px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td>
+                      <p style="margin:0;color:rgba(255,255,255,0.65);font-size:11px;
+                                text-transform:uppercase;letter-spacing:1px;">
+                        Total Offer Value
+                      </p>
+                    </td>
+                    <td align="right">
+                      <p style="margin:0;color:#fff;font-size:30px;font-weight:800;
+                                letter-spacing:-0.5px;">
+                        {{total}}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- ── Note ── -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
+            <tr>
+              <td style="background:#FFF8E1;border-left:4px solid #FF6F00;
+                          border-radius:0 8px 8px 0;padding:12px 18px;">
+                <p style="margin:0;color:#E65100;font-size:13px;line-height:1.6;">
+                  <strong>Note:</strong> This offer is valid for <strong>30 days</strong>
+                  from the date above. Prices are subject to change based on final device inspection.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Sign-off -->
+          <p style="margin:0;color:#546E7A;font-size:14px;line-height:1.7;">
+            To accept this offer or for any inquiries, please reply to this email
+            or contact your assigned engineer directly.
+          </p>
+          <p style="margin:14px 0 0;color:#546E7A;font-size:14px;">
+            Best regards,<br/>
+            <strong style="color:#0D1B2A;">{{engineer_name}}</strong><br/>
+            <span style="color:#1565C0;font-size:13px;">UMECC &middot; Caliborty</span>
+          </p>
+
+        </td>
+      </tr>
+
+      <!-- ══ FOOTER ══ -->
+      <tr>
+        <td style="background:#0D1B2A;padding:20px 40px;border-radius:0 0 16px 16px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td valign="middle">
+                <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;font-weight:600;">
+                  UMECC
+                </p>
+                <p style="margin:3px 0 0;color:rgba(255,255,255,0.3);font-size:11px;">
+                  Biomedical Engineering Dept. &middot; Faculty of Engineering &middot; Minia University
+                </p>
+              </td>
+              <td align="right" valign="middle">
+                <p style="margin:0;color:rgba(255,255,255,0.2);font-size:11px;">
+                  Sent via Caliborty App
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+
+</body>
+</html>

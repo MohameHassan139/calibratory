@@ -116,3 +116,228 @@ exports.sendCertificateEmail = functions.https.onCall(async (data, context) => {
   await transporter.sendMail(mailOptions);
   return { success: true };
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// sendPriceOfferEmail
+// ─────────────────────────────────────────────────────────────────────────────
+
+exports.sendPriceOfferEmail = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
+  }
+
+  const { toEmail, clientName, engineerName, total, items } = req.body;
+
+  if (!toEmail || !items || !Array.isArray(items)) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  // ── Build items rows ──────────────────────────────────────────────────────
+  const itemRows = items.map((item, i) => {
+    const services = [];
+    if (item.functionCheck) services.push(`Function ($${Number(item.functionPrice).toFixed(0)})`);
+    if (item.safetyCheck)   services.push(`Safety ($${Number(item.safetyPrice).toFixed(0)})`);
+    const serviceStr = services.length ? services.join(' + ') : '—';
+    const rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+    return `
+      <tr style="background:${rowBg};">
+        <td style="padding:12px 16px;color:#0D1B2A;font-size:14px;border-bottom:1px solid #EEF2F8;">${item.name}</td>
+        <td style="padding:12px 16px;color:#546E7A;font-size:13px;border-bottom:1px solid #EEF2F8;text-align:center;">${serviceStr}</td>
+        <td style="padding:12px 16px;color:#546E7A;font-size:13px;border-bottom:1px solid #EEF2F8;text-align:center;">${item.qty}</td>
+        <td style="padding:12px 16px;font-weight:700;color:#1565C0;font-size:14px;border-bottom:1px solid #EEF2F8;text-align:right;">$${Number(item.subtotal).toFixed(0)}</td>
+      </tr>`;
+  }).join('');
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Price Offer</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;">
+
+          <!-- ── Header ── -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#0D1B2A 0%,#1A2F45 100%);
+                        padding:36px 40px;border-radius:16px 16px 0 0;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <div style="display:inline-block;background:#1565C0;
+                                border-radius:12px;padding:10px 14px;
+                                margin-bottom:14px;">
+                      <span style="color:white;font-size:20px;">⚕</span>
+                    </div>
+                    <h1 style="margin:0;color:#ffffff;font-size:26px;
+                               font-weight:800;letter-spacing:-0.5px;">
+                      Caliborty
+                    </h1>
+                    <p style="margin:4px 0 0;color:rgba(255,255,255,0.55);font-size:13px;">
+                      UMECC · وحدة معايرة واستشارات الأجهزة الطبية
+                    </p>
+                  </td>
+                  <td align="right" valign="top">
+                    <div style="background:rgba(255,255,255,0.08);border-radius:10px;
+                                padding:10px 16px;display:inline-block;text-align:right;">
+                      <p style="margin:0;color:rgba(255,255,255,0.5);font-size:10px;
+                                text-transform:uppercase;letter-spacing:1px;">Date</p>
+                      <p style="margin:2px 0 0;color:#ffffff;font-size:13px;font-weight:600;">
+                        ${dateStr}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ── Title band ── -->
+          <tr>
+            <td style="background:#1565C0;padding:14px 40px;">
+              <p style="margin:0;color:#ffffff;font-size:15px;font-weight:700;
+                         letter-spacing:0.3px;">
+                📋 &nbsp;MAINTENANCE PRICE OFFER
+              </p>
+            </td>
+          </tr>
+
+          <!-- ── Body ── -->
+          <tr>
+            <td style="background:#ffffff;padding:36px 40px;">
+
+              <!-- Greeting -->
+              <p style="margin:0 0 6px;color:#546E7A;font-size:14px;">Dear,</p>
+              <h2 style="margin:0 0 20px;color:#0D1B2A;font-size:20px;font-weight:800;">
+                ${clientName || 'Valued Client'}
+              </h2>
+
+              <p style="margin:0 0 28px;color:#546E7A;font-size:14px;line-height:1.7;">
+                Please find below the maintenance price offer prepared by
+                <strong style="color:#0D1B2A;">${engineerName}</strong>.
+                This offer covers the selected devices and service types as detailed in the table.
+              </p>
+
+              <!-- Items table -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="border-radius:12px;overflow:hidden;
+                            border:1px solid #EEF2F8;margin-bottom:28px;">
+                <thead>
+                  <tr style="background:#EEF2F8;">
+                    <th style="padding:12px 16px;text-align:left;color:#546E7A;
+                               font-size:11px;text-transform:uppercase;
+                               letter-spacing:0.8px;font-weight:700;">Device</th>
+                    <th style="padding:12px 16px;text-align:center;color:#546E7A;
+                               font-size:11px;text-transform:uppercase;
+                               letter-spacing:0.8px;font-weight:700;">Services</th>
+                    <th style="padding:12px 16px;text-align:center;color:#546E7A;
+                               font-size:11px;text-transform:uppercase;
+                               letter-spacing:0.8px;font-weight:700;">Qty</th>
+                    <th style="padding:12px 16px;text-align:right;color:#546E7A;
+                               font-size:11px;text-transform:uppercase;
+                               letter-spacing:0.8px;font-weight:700;">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemRows}
+                </tbody>
+              </table>
+
+              <!-- Total -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:linear-gradient(135deg,#1565C0,#1976D2);
+                            border-radius:12px;margin-bottom:32px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <p style="margin:0;color:rgba(255,255,255,0.75);
+                                    font-size:12px;text-transform:uppercase;
+                                    letter-spacing:1px;">Total Offer Value</p>
+                        </td>
+                        <td align="right">
+                          <p style="margin:0;color:#ffffff;font-size:28px;
+                                    font-weight:800;letter-spacing:-0.5px;">
+                            $${Number(total).toFixed(0)}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Note -->
+              <div style="background:#FFF8E1;border-left:4px solid #FF6F00;
+                          border-radius:0 8px 8px 0;padding:14px 18px;
+                          margin-bottom:28px;">
+                <p style="margin:0;color:#E65100;font-size:13px;line-height:1.6;">
+                  <strong>Note:</strong> This offer is valid for 30 days from the date above.
+                  Prices are subject to change based on final device inspection.
+                </p>
+              </div>
+
+              <!-- CTA -->
+              <p style="margin:0;color:#546E7A;font-size:14px;line-height:1.7;">
+                To accept this offer or for any inquiries, please reply to this email
+                or contact your assigned engineer directly.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- ── Footer ── -->
+          <tr>
+            <td style="background:#0D1B2A;padding:24px 40px;
+                        border-radius:0 0 16px 16px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <p style="margin:0;color:rgba(255,255,255,0.8);
+                               font-size:13px;font-weight:600;">UMECC</p>
+                    <p style="margin:4px 0 0;color:rgba(255,255,255,0.4);font-size:11px;">
+                      Faculty of Engineering · Minia University
+                    </p>
+                  </td>
+                  <td align="right">
+                    <p style="margin:0;color:rgba(255,255,255,0.3);font-size:11px;">
+                      Sent via Caliborty App
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`;
+
+  const mailOptions = {
+    from: `"UMECC - Caliborty" <${functions.config().email.user}>`,
+    to: toEmail,
+    subject: `💼 Price Offer — ${clientName || 'Client'} | Total: $${Number(total).toFixed(0)}`,
+    html,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('sendPriceOfferEmail error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
