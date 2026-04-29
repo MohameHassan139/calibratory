@@ -112,7 +112,7 @@ class _CompletedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool passed = session.overallResult == true;
+    final bool passed = session.overallResult == 'PASS';
     final Color color = passed ? AppColors.success : AppColors.error;
 
     return Scaffold(

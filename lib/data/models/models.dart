@@ -39,7 +39,7 @@ extension ItemStatusExt on ItemStatus {
 }
 
 class MeasurementRow {
-  final double settingValue;
+  double settingValue; // mutable so user can override the default
   final List<double> reads; // up to 5 reads
   double? average;
   bool? status; // true = pass, false = fail, null = NF
@@ -70,8 +70,8 @@ class MeasurementRow {
 }
 
 class NIBPRow {
-  final double systolicSetting;
-  final double diastolicSetting;
+  double systolicSetting;
+  double diastolicSetting;
   final List<double> systolicReads;
   final List<double> diastolicReads;
   bool? systolicStatus;

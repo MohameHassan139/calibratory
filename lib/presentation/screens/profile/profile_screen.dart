@@ -181,14 +181,14 @@ class _ProfileStats extends StatelessWidget {
         Container(height: 40, width: 1, color: AppColors.border),
         _StatItem(
             value: calibCtrl.history
-                .where((h) => h.overallResult == true)
+                .where((h) => h.overallResult == 'PASS')
                 .length
                 .toString(),
             label: 'Passed'),
         Container(height: 40, width: 1, color: AppColors.border),
         _StatItem(
             value: calibCtrl.history
-                .where((h) => h.overallResult == false)
+                .where((h) => h.overallResult == 'FAIL')
                 .length
                 .toString(),
             label: 'Failed'),

@@ -81,18 +81,18 @@ class _HistoryCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (session.overallResult == true
+                    color: (session.overallResult == 'PASS'
                             ? AppColors.success
                             : AppColors.error)
                         .withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    session.overallResult == true ? 'PASS' : 'FAIL',
+                    session.overallResult == 'PASS' ? 'PASS' : 'FAIL',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: session.overallResult == true
+                      color: session.overallResult == 'PASS'
                           ? AppColors.success
                           : AppColors.error,
                     ),

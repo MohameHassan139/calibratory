@@ -1,34 +1,28 @@
 // lib/presentation/controllers/calibration_controller.dart
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../data/models/models.dart';
 import '../../core/constants/app_constants.dart';
 import 'auth_controller.dart';
 import '../services/certificate_service.dart';
-import '../services/email_service.dart';
 
 class CalibrationController extends GetxController {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final AuthController _authCtrl = Get.find();
 
   final Rx<CalibrationSession?> session = Rx<CalibrationSession?>(null);
   final RxBool isLoading = false.obs;
   final RxInt currentStep = 0.obs;
-
-  // History
   final RxList<CalibrationSession> history = <CalibrationSession>[].obs;
 
-  @override
-  void onInit() {
-    super.onInit();
-    loadHistory();
-  }
-
   void startNewSession() {
-    final user = _authCtrl.appUser.value!;
+    final user = _authCtrl.appUser.value;
+    if (user == null) {
+      Get.snackbar('Error', 'User data not loaded. Please try again.',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
     session.value = CalibrationSession(
       engineerId: user.uid,
       engineerName: user.fullName,
@@ -68,15 +62,11 @@ class CalibrationController extends GetxController {
   }
 
   void updateQualitative(Map<String, ItemStatus> results) {
-    session.update((s) {
-      s!.qualitativeResults = Map.from(results);
-    });
+    session.update((s) => s!.qualitativeResults = Map.from(results));
   }
 
   void updateEcgRepresentation(Map<String, ItemStatus> results) {
-    session.update((s) {
-      s!.ecgRepresentation = Map.from(results);
-    });
+    session.update((s) => s!.ecgRepresentation = Map.from(results));
   }
 
   void updateHrRows(List<MeasurementRow> rows) {
@@ -108,58 +98,46 @@ class CalibrationController extends GetxController {
   }
 
   void _validateHr() {
-    final rows = session.value!.hrRows;
-    for (var row in rows) {
+    for (var row in session.value!.hrRows) {
       if (row.reads.isNotEmpty) {
-        final avg = row.computedAverage;
-        row.average = avg;
+        row.average = row.computedAverage;
         final range = MonitorConstants.hrAcceptedRange(row.settingValue);
-        row.status = avg >= range[0] && avg <= range[1];
+        row.status = row.average! >= range[0] && row.average! <= range[1];
       }
     }
   }
 
   void _validateSpo2() {
-    final rows = session.value!.spo2Rows;
-    for (var row in rows) {
+    for (var row in session.value!.spo2Rows) {
       if (row.reads.isNotEmpty) {
-        final avg = row.computedAverage;
-        row.average = avg;
+        row.average = row.computedAverage;
         final range = MonitorConstants.spo2AcceptedRange(row.settingValue);
-        row.status = avg >= range[0] && avg <= range[1];
+        row.status = row.average! >= range[0] && row.average! <= range[1];
       }
     }
   }
 
   void _validateNibp() {
-    final rows = session.value!.nibpRows;
-    for (var row in rows) {
+    for (var row in session.value!.nibpRows) {
       if (row.systolicReads.isNotEmpty) {
-        final sysAvg = row.systolicReads.reduce((a, b) => a + b) /
-            row.systolicReads.length;
-        final sysRange =
-            MonitorConstants.nibpAcceptedRange(row.systolicSetting);
-        row.systolicStatus = sysAvg >= sysRange[0] && sysAvg <= sysRange[1];
+        final avg = row.systolicReads.reduce((a, b) => a + b) / row.systolicReads.length;
+        final range = MonitorConstants.nibpAcceptedRange(row.systolicSetting);
+        row.systolicStatus = avg >= range[0] && avg <= range[1];
       }
       if (row.diastolicReads.isNotEmpty) {
-        final diaAvg = row.diastolicReads.reduce((a, b) => a + b) /
-            row.diastolicReads.length;
-        final diaRange =
-            MonitorConstants.nibpAcceptedRange(row.diastolicSetting);
-        row.diastolicStatus = diaAvg >= diaRange[0] && diaAvg <= diaRange[1];
+        final avg = row.diastolicReads.reduce((a, b) => a + b) / row.diastolicReads.length;
+        final range = MonitorConstants.nibpAcceptedRange(row.diastolicSetting);
+        row.diastolicStatus = avg >= range[0] && avg <= range[1];
       }
     }
   }
 
   void _validateRespiration() {
-    final rows = session.value!.respirationRows;
-    for (var row in rows) {
+    for (var row in session.value!.respirationRows) {
       if (row.reads.isNotEmpty) {
-        final avg = row.computedAverage;
-        row.average = avg;
-        final range =
-            MonitorConstants.respirationAcceptedRange(row.settingValue);
-        row.status = avg >= range[0] && avg <= range[1];
+        row.average = row.computedAverage;
+        final range = MonitorConstants.respirationAcceptedRange(row.settingValue);
+        row.status = row.average! >= range[0] && row.average! <= range[1];
       }
     }
   }
@@ -168,108 +146,125 @@ class CalibrationController extends GetxController {
     for (var rows in [session.value!.temp1Rows, session.value!.temp2Rows]) {
       for (var row in rows) {
         if (row.reads.isNotEmpty) {
-          final avg = row.computedAverage;
-          row.average = avg;
+          row.average = row.computedAverage;
           final range = MonitorConstants.tempAcceptedRange(row.settingValue);
-          row.status = avg >= range[0] && avg <= range[1];
+          row.status = row.average! >= range[0] && row.average! <= range[1];
         }
       }
     }
   }
 
-  bool _computeAllPass() {
-    final s = session.value!;
-    final allStatuses = <bool>[];
-    if (s.showHrTable) {
-      allStatuses.addAll(s.hrRows.map((r) => r.status ?? false));
-    }
-    if (s.showSpo2Table) {
-      allStatuses.addAll(s.spo2Rows.map((r) => r.status ?? false));
-    }
-    if (s.showNibpTable) {
-      for (var row in s.nibpRows) {
-        if (row.systolicStatus != null) allStatuses.add(row.systolicStatus!);
-        if (row.diastolicStatus != null) allStatuses.add(row.diastolicStatus!);
-      }
-    }
-    if (s.showRespirationTable) {
-      allStatuses.addAll(s.respirationRows.map((r) => r.status ?? false));
-    }
-    if (s.showTempTables) {
-      allStatuses.addAll(s.temp1Rows.map((r) => r.status ?? false));
-      allStatuses.addAll(s.temp2Rows.map((r) => r.status ?? false));
-    }
-    if (allStatuses.isEmpty) return true;
-    return allStatuses.every((st) => st == true);
+  // Returns 'PASS', 'FAIL', or 'N/F'
+  String _computeQualResult() {
+    final values = session.value!.qualitativeResults.values.toList()
+      ..addAll(session.value!.ecgRepresentation.values);
+    if (values.isEmpty) return 'N/F';
+    if (values.any((v) => v == ItemStatus.fail)) return 'FAIL';
+    if (values.every((v) => v == ItemStatus.notAvailable)) return 'N/F';
+    return 'PASS';
   }
 
-  bool _computeQualPass() {
-    final q = session.value!.qualitativeResults;
-    return q.values
-        .every((v) => v == ItemStatus.pass || v == ItemStatus.notAvailable);
+  // Returns 'PASS', 'FAIL', or 'N/F'
+  String _computeQuantResult() {
+    final s = session.value!;
+    final statuses = <bool?>[];
+
+    if (s.showHrTable) statuses.addAll(s.hrRows.map((r) => r.status));
+    if (s.showSpo2Table) statuses.addAll(s.spo2Rows.map((r) => r.status));
+    if (s.showNibpTable) {
+      for (final row in s.nibpRows) {
+        statuses.add(row.systolicStatus);
+        statuses.add(row.diastolicStatus);
+      }
+    }
+    if (s.showRespirationTable) statuses.addAll(s.respirationRows.map((r) => r.status));
+    if (s.showTempTables) {
+      statuses.addAll(s.temp1Rows.map((r) => r.status));
+      statuses.addAll(s.temp2Rows.map((r) => r.status));
+    }
+
+    final nonNull = statuses.whereType<bool>().toList();
+    if (nonNull.isEmpty) return 'N/F';
+    if (nonNull.any((st) => !st)) return 'FAIL';
+    return 'PASS';
+  }
+
+  // AND logic: FAIL if either is FAIL, N/F if both are N/F, else PASS
+  static String _combineResults(String qual, String quant) {
+    if (qual == 'FAIL' || quant == 'FAIL') return 'FAIL';
+    if (qual == 'N/F' && quant == 'N/F') return 'N/F';
+    return 'PASS';
   }
 
   String _nextCertNumber() {
     final year = DateTime.now().year;
     final count = history.length + 1;
-    return '\${count.toString().padLeft(3, ';
-    0;
-    ')}/$year';
+    return '${count.toString().padLeft(3, '0')}/$year';
   }
 
-  Future<void> completeCalibration(
-      {String notes = '', String? clientEmail}) async {
+  Future<void> completeCalibration({String notes = '', String? clientEmail}) async {
     isLoading.value = true;
     try {
       final s = session.value!;
+
       s.notes = notes;
       s.testDate = DateTime.now();
       s.certificateNumber = _nextCertNumber();
-      final passed = _computeAllPass();
-      final qualPassed = _computeQualPass();
-      s.qualitativeResult = qualPassed ? 'PASS' : 'FAIL';
-      s.quantitativeResult = passed ? 'PASS' : 'FAIL';
-      s.overallResult = (qualPassed && passed) ? 'PASS' : 'FAIL';
       s.hospitalName = s.customerName;
       s.status = 'completed';
 
-      // Generate certificate .docx
-      final certPath = await CertificateService.generateCertificate(s);
+      final String qualResult = _computeQualResult();
+      final String quantResult = _computeQuantResult();
+      final String finalResult = _combineResults(qualResult, quantResult);
 
-      // Upload to Supabase
-      final supabase = Supabase.instance.client;
-      final path =
-          'certificates/${s.engineerId}/${s.serialNumber}_${DateTime.now().millisecondsSinceEpoch}.docx';
-      final certFile = File(certPath);
-      await supabase.storage.from('certificates').upload(path, certFile);
-      final url = supabase.storage.from('certificates').getPublicUrl(path);
+      s.qualitativeResult = qualResult;
+      s.quantitativeResult = quantResult;
+      s.overallResult = finalResult;
 
-      s.certificateUrl = url;
-      s.supabasePath = path;
+      Get.snackbar('Generating', 'Building certificate…',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2));
 
-      // Save to Firestore
-      final docRef = await _db.collection('calibrations').add(s.toFirestore());
-      s.id = docRef.id;
+      final String certPath = await CertificateService.generateCertificate(s);
+      print('✅ Certificate at: $certPath');
 
-      loadHistory();
+      if (!File(certPath).existsSync()) {
+        throw Exception('Certificate file was not created at $certPath');
+      }
+
+      // Add to local history
+      history.insert(0, s);
+
+      Get.snackbar('Done', 'Certificate ready ✓',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFF22C55E),
+          colorText: const Color(0xFFFFFFFF),
+          duration: const Duration(seconds: 2));
+
+      final OpenResult result = await OpenFilex.open(certPath);
+      print('📂 OpenFilex: ${result.type} — ${result.message}');
+
+      if (result.type == ResultType.noAppToOpen) {
+        Get.snackbar('No App Found',
+            'Install Microsoft Word or a document viewer to open .docx files',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 5));
+      } else if (result.type != ResultType.done) {
+        Get.snackbar('Cannot Open', result.message,
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 5));
+      }
+
       Get.offAllNamed(AppRoutes.calibrationSummary);
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to complete calibration: $e',
-          snackPosition: SnackPosition.BOTTOM);
+    } catch (e, stack) {
+      print('❌ completeCalibration: $e\n$stack');
+      Get.snackbar('Error', e.toString(),
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5));
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> loadHistory() async {
-    final uid = _authCtrl.appUser.value?.uid;
-    if (uid == null) return;
-    final query = await _db
-        .collection('calibrations')
-        .where('engineerId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .get();
-    history.value =
-        query.docs.map((d) => CalibrationSession.fromFirestore(d)).toList();
-  }
+  Future<void> loadHistory() async {}
 }

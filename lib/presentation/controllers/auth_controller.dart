@@ -30,9 +30,24 @@ class AuthController extends GetxController {
   }
 
   Future<void> _loadUserData(String uid) async {
-    final doc = await _db.collection('users').doc(uid).get();
-    if (doc.exists) {
-      appUser.value = AppUser.fromFirestore(doc);
+    try {
+      final doc = await _db.collection('users').doc(uid).get();
+      if (doc.exists) {
+        appUser.value = AppUser.fromFirestore(doc);
+      }
+    } catch (e) {
+      print('❌ Firestore _loadUserData failed: $e');
+      // Build a minimal AppUser from Firebase Auth so the app still works
+      final firebaseUser = _auth.currentUser;
+      if (firebaseUser != null) {
+        appUser.value = AppUser(
+          uid: firebaseUser.uid,
+          fullName: firebaseUser.displayName ?? firebaseUser.email ?? 'Engineer',
+          email: firebaseUser.email ?? '',
+          phone: '',
+          createdAt: DateTime.now(),
+        );
+      }
     }
   }
 
@@ -67,10 +82,14 @@ class AuthController extends GetxController {
         phone: phone,
         createdAt: DateTime.now(),
       );
-      await _db
-          .collection('users')
-          .doc(cred.user!.uid)
-          .set(user.toFirestore());
+      try {
+        await _db
+            .collection('users')
+            .doc(cred.user!.uid)
+            .set(user.toFirestore());
+      } catch (e) {
+        print('❌ Firestore register save failed: $e');
+      }
       appUser.value = user;
     } on FirebaseAuthException catch (e) {
       Get.snackbar('Registration Failed', _authError(e.code),

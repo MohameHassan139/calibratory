@@ -359,6 +359,8 @@ class MeasurementTableScreen extends StatefulWidget {
 class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
   late List<MeasurementRow> rows;
   late List<List<TextEditingController>> controllers;
+  late List<TextEditingController> settingControllers;
+  late List<bool> rowErrors; // true when 1–2 reads entered
 
   @override
   void initState() {
@@ -367,11 +369,53 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
         .map((s) => MeasurementRow(settingValue: s, reads: []))
         .toList();
     controllers = List.generate(
-        rows.length, (_) => List.generate(3, (_) => TextEditingController()));
+        rows.length, (_) => List.generate(5, (_) => TextEditingController()));
+    settingControllers = rows
+        .map((r) =>
+            TextEditingController(text: r.settingValue.toStringAsFixed(0)))
+        .toList();
+    rowErrors = List.filled(rows.length, false);
+  }
+
+  @override
+  void dispose() {
+    for (final c in settingControllers) {
+      c.dispose();
+    }
+    for (final row in controllers) {
+      for (final c in row) {
+        c.dispose();
+      }
+    }
+    super.dispose();
   }
 
   void _computeAndSave() {
+    // Mark rows with fewer than 3 reads as errors (0 reads also invalid)
+    bool hasAnyError = false;
     for (int i = 0; i < rows.length; i++) {
+      final reads = controllers[i]
+          .map((c) => double.tryParse(c.text.trim()))
+          .whereType<double>()
+          .toList();
+      rowErrors[i] = reads.length < 3;
+      if (rowErrors[i]) hasAnyError = true;
+    }
+    if (hasAnyError) {
+      setState(() {});
+      Get.snackbar(
+        'Incomplete Data',
+        'Every row needs at least 3 readings.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    for (int i = 0; i < rows.length; i++) {
+      final enteredSetting =
+          double.tryParse(settingControllers[i].text.trim());
+      if (enteredSetting != null) rows[i].settingValue = enteredSetting;
       final reads = controllers[i]
           .map((c) => double.tryParse(c.text.trim()))
           .whereType<double>()
@@ -442,7 +486,7 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Enter 3 readings for each setting value. The average will be computed automatically.',
+                            'Enter 3 to 5 readings per row (minimum 3 required). Average updates automatically.',
                             style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.accent.withValues(alpha: 0.9)),
@@ -453,64 +497,86 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                   ),
                   const SizedBox(height: 16),
                   // Table
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      children: [
-                        // Header
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(16),
-                              topRight: Radius.circular(16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 8),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                              ),
+                              child: Row(
+                                children: [
+                                  TableHeaderCell('Set\n(${widget.unit})', colSetting),
+                                  TableHeaderCell('Read 1', colRead),
+                                  TableHeaderCell('Read 2', colRead),
+                                  TableHeaderCell('Read 3', colRead),
+                                  TableHeaderCell('Read 4', colRead),
+                                  TableHeaderCell('Read 5', colRead),
+                                  TableHeaderCell('Avg', colAvg),
+                                  TableHeaderCell('Range', colRange),
+                                  TableHeaderCell('Status', colStatus),
+                                ],
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              TableHeaderCell('Set (${widget.unit})', 1.2),
-                              const TableHeaderCell('Read 1', 1),
-                              const TableHeaderCell('Read 2', 1),
-                              const TableHeaderCell('Read 3', 1),
-                              const TableHeaderCell('Avg', 1),
-                              const TableHeaderCell('Range', 1.5),
-                              const TableHeaderCell('Status', 0.9),
-                            ],
-                          ),
-                        ),
-                        // Data rows
-                        ...List.generate(rows.length, (i) {
-                          final range =
-                              widget.acceptedRangeFunc(rows[i].settingValue);
-                          return MeasurementTableRow(
-                            settingValue: rows[i].settingValue,
-                            controllers: controllers[i],
-                            rangeStr:
-                                '${range[0].toStringAsFixed(1)}-${range[1].toStringAsFixed(1)}',
-                            avg: rows[i].average,
-                            status: rows[i].status,
-                            isLast: i == rows.length - 1,
-                            onChanged: () => setState(() {
-                              final reads = controllers[i]
-                                  .map((c) => double.tryParse(c.text.trim()))
-                                  .whereType<double>()
-                                  .toList();
-                              if (reads.length == 3) {
-                                final avg = reads.reduce((a, b) => a + b) /
-                                    reads.length;
-                                rows[i].average = avg;
-                                rows[i].status =
-                                    avg >= range[0] && avg <= range[1];
-                              }
+                            // Data rows
+                            ...List.generate(rows.length, (i) {
+                              final effectiveSetting = double.tryParse(
+                                      settingControllers[i].text.trim()) ??
+                                  rows[i].settingValue;
+                              final range =
+                                  widget.acceptedRangeFunc(effectiveSetting);
+                              return MeasurementTableRow(
+                                settingValue: rows[i].settingValue,
+                                settingController: settingControllers[i],
+                                controllers: controllers[i],
+                                rangeStr:
+                                    '${range[0].toStringAsFixed(1)}-${range[1].toStringAsFixed(1)}',
+                                avg: rows[i].average,
+                                status: rows[i].status,
+                                isLast: i == rows.length - 1,
+                                onChanged: () => setState(() {
+                                  final sv = double.tryParse(
+                                          settingControllers[i].text.trim()) ??
+                                      rows[i].settingValue;
+                                  final reads = controllers[i]
+                                      .map((c) =>
+                                          double.tryParse(c.text.trim()))
+                                      .whereType<double>()
+                                      .toList();
+                                  // Update error state live
+                                  rowErrors[i] = reads.length < 3;
+                                  if (reads.length >= 3) {
+                                    final avg =
+                                        reads.reduce((a, b) => a + b) /
+                                            reads.length;
+                                    rows[i].average = avg;
+                                    final r = widget.acceptedRangeFunc(sv);
+                                    rows[i].status =
+                                        avg >= r[0] && avg <= r[1];
+                                  } else {
+                                    rows[i].average = null;
+                                    rows[i].status = null;
+                                  }
+                                }),
+                                hasError: rowErrors[i],
+                              );
                             }),
-                          );
-                        }),
-                      ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],

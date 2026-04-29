@@ -1,30 +1,60 @@
 // lib/presentation/services/certificate_service.dart
 //
-// Generates a filled .docx from assets/monitor_certificate.docx by:
-//   1. Unzipping the asset (docx = ZIP)
-//   2. Patching word/document.xml (text replacements + cell injection by paraId)
-//   3. Re-zipping and saving to the app documents directory.
+// Fills assets/monitor_certificate.docx by replacing {Key} placeholders
+// with real session data, then re-zips and saves the result.
 //
-// Template placeholder map:
-// ┌─────────────────────┬───────────────────────────────────────────────────┐
-// │ Template text       │ Replaced with                                     │
-// ├─────────────────────┼───────────────────────────────────────────────────┤
-// │ UMECC xxx /         │ UMECC <certNo left part> /                        │
-// │ xxxx ( xx pages)    │ <certNo right part> ( N pages)                    │
-// │ (UMECCxxx/xxxx:...) │ page footer on every page                         │
-// │ xxxxx               │ hospital name (blue bold cell)                    │
-// │ xxxx (1st)          │ manufacturer                                      │
-// │ xxxx (2nd)          │ model                                             │
-// │ xxxx (3rd, yellow)  │ serial number                                     │
-// │ xxxx (4th)          │ qualitative overall result                        │
-// │ xxxx (5th)          │ quantitative overall result                       │
-// │ xxxx (6th)          │ combined overall result                           │
-// │ Xx/xx/xxxx          │ test date (all occurrences)                       │
-// │ م / -------         │ م / <engineer name> (all page footers)            │
-// └─────────────────────┴───────────────────────────────────────────────────┘
+// ── Qualitative Table Keys (from template image) ─────────────────────────────
+//  Visual Inspection:
+//   {Cha} Chassis/Housing      {Con} Controls/Switches
+//   {Mou} Mount                {Bat} Battery/charger
+//   {Cas} Casters/Brakes       {Ind} Indicator/Displays
+//   {AC}  AC plug              {Lab} Labeling
+//   {Lin} Line Cord            {Ala} Alarms
+//   {Scr} Screen               {Hou} Module Housing
+//   {SPO} SPO2 cable           {Tro} Mounting/Trolley
+//  ECG Representation:
+//   {Atr} Atrial Fibrillation  {Prem} Premature ventricle contraction
+//   {Ven} Ventricle Fibrillation {Paro} Paroxysmal Atrial Tachycardia
+//   {Atrf} Atrial Flutter      {Poly} Polymorphic Ventricular Tachycardia
+//   {Rep} Representation of Standard signals
+//   {ECG} Represent ECG waveforms with different Amplitudes
 //
-// Measurement cells are injected by unique w14:paraId attributes extracted
-// directly from the unpacked template XML (no run-time re-analysis needed).
+// ── Header / Info Keys ────────────────────────────────────────────────────────
+//   {HospitalName}  customer / hospital name
+//   {Manufacturer}  device manufacturer
+//   {Model}         device model
+//   {SerialNo}      serial number
+//   {Department}    department
+//   {VisitDate}     visit date  dd/mm/yyyy
+//   {OrderDate}     order date  dd/mm/yyyy
+//   {EngineerName}  engineer full name
+//   {CertNo}        certificate number
+//   {Final_Qualitative} qualitative result  (PASS / FAIL / N/F)
+//   {Final_Quantitative} quantitative result (PASS / FAIL / N/F)
+//   {Final}             combined result — AND of both (PASS / FAIL / N/F)
+//
+// ── Measurement Table Keys ────────────────────────────────────────────────────
+//  Heart Rate rows (6 rows × 4 cols):
+//   {HR1_Avg} {HR1_Err} {HR1_Unc} {HR1_Sta}  ... {HR6_Sta}
+//  SPO2 rows (5 rows):
+//   {SP1_Avg} {SP1_Err} {SP1_Unc} {SP1_Sta}  ... {SP5_Sta}
+//  NIBP rows (6 pairs × sys+dia, defaults: sys=60,80,100,120,180,240 / dia=30,40,60,80,140,200):
+//   Value-based:  {NIBP_S_Set60} {NIBP_S_Avg60} {NIBP_S_Err60} {NIBP_S_Acc60} {NIBP_S_Sta60} {NIBP_S_Unc60}
+//                 {NIBP_D_Set30} {NIBP_D_Avg30} {NIBP_D_Err30} {NIBP_D_Acc30} {NIBP_D_Sta30} {NIBP_D_Unc30}
+//   Index-based:  {NIBP_S_Set1}  {NIBP_S_Avg1}  {NIBP_S_Err1}  {NIBP_S_Acc1}  {NIBP_S_Sta1}  {NIBP_S_Unc1}
+//                 {NIBP_D_Set1}  {NIBP_D_Avg1}  {NIBP_D_Err1}  {NIBP_D_Acc1}  {NIBP_D_Sta1}  {NIBP_D_Unc1}
+//                 ... rows 1–6
+//   Legacy aliases also populated: {Set_Sys60}, {Set_Dia30}
+//  Respiration rows (4 rows):
+//   {RR1_Avg} {RR1_Err} {RR1_Unc} {RR1_Sta}  ... {RR4_Sta}
+//  Temperature sensor 1 (3 rows: 33, 37, 41 °C):
+//   {Tem_Set33} {Tem_Avg33} {Tem_Err33} {Tem_Acc33} {Tem_Sta33} {Tem_Unc33}
+//   {Tem_Set37} {Tem_Avg37} {Tem_Err37} {Tem_Acc37} {Tem_Sta37} {Tem_Unc37}
+//   {Tem_Set41} {Tem_Avg41} {Tem_Err41} {Tem_Acc41} {Tem_Sta41} {Tem_Unc41}
+//  Temperature sensor 2 (3 rows: 33, 37, 41 °C):
+//   {Tem2_Set33} {Tem2_Avg33} {Tem2_Err33} {Tem2_Acc33} {Tem2_Sta33} {Tem2_Unc33}
+//   {Tem2_Set37} {Tem2_Avg37} {Tem2_Err37} {Tem2_Acc37} {Tem2_Sta37} {Tem2_Unc37}
+//   {Tem2_Set41} {Tem2_Avg41} {Tem2_Err41} {Tem2_Acc41} {Tem2_Sta41} {Tem2_Unc41}
 
 import 'dart:io';
 import 'dart:typed_data';
@@ -34,6 +64,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../data/models/models.dart';
 
 class CertificateService {
@@ -41,18 +72,15 @@ class CertificateService {
   // PUBLIC API
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Generate a filled certificate for [session].
-  /// Returns the absolute path of the written .docx file.
+  /// Generate a filled .docx certificate for [session].
+  /// Returns the absolute path of the written file.
   static Future<String> generateCertificate(CalibrationSession session) async {
-    // Load template bytes from Flutter assets
     final ByteData data =
         await rootBundle.load('assets/monitor_certificate.docx');
     final Uint8List templateBytes = data.buffer.asUint8List();
 
-    // Decode ZIP
     final Archive archive = ZipDecoder().decodeBytes(templateBytes);
 
-    // Patch document.xml
     final List<ArchiveFile> newFiles = [];
     for (final file in archive) {
       if (file.name == 'word/document.xml') {
@@ -65,7 +93,6 @@ class CertificateService {
       }
     }
 
-    // Re-encode as ZIP
     final Archive newArchive = Archive();
     for (final f in newFiles) {
       newArchive.addFile(f);
@@ -73,385 +100,426 @@ class CertificateService {
     final List<int>? outBytes = ZipEncoder().encode(newArchive);
     if (outBytes == null) throw Exception('Certificate ZIP encoding failed');
 
-    // Write to disk
     final dir = await getApplicationDocumentsDirectory();
-    final String id = const Uuid().v4().substring(0, 8);
-    final String fileName = 'cert_${session.serialNumber}_$id.docx';
+    final String uid = const Uuid().v4().substring(0, 8);
+    final String fileName = 'cert_${session.serialNumber}_$uid.docx';
     final String path = '${dir.path}/$fileName';
     await File(path).writeAsBytes(outBytes);
     return path;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CORE PATCH
+  // BUILD REPLACEMENT MAP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static Map<String, String> _buildMap(CalibrationSession s) {
+    final map = <String, String>{};
+
+    // ── Header fields ─────────────────────────────────────────────────────────
+    map['{HospitalName}'] =
+        s.hospitalName.isNotEmpty ? s.hospitalName : s.customerName;
+    map['{Manufacturer}'] = s.manufacturer;
+    map['{Model}'] = s.model;
+    map['{SerialNo}'] = s.serialNumber;
+    map['{Department}'] = s.department;
+    map['{VisitDate}'] = _fmtDate(s.visitDate);
+    map['{OrderDate}'] = _fmtDate(s.orderDate);
+    map['{EngineerName}'] = s.engineerName;
+    map['{CertNo}'] = s.certificateNumber ?? '';
+
+    // ── Overall results ───────────────────────────────────────────────────────
+    map['{Final_Qualitative}'] = s.qualitativeResult ?? 'N/F';
+    map['{Final_Quantitative}'] = s.quantitativeResult ?? 'N/F';
+    map['{Final}'] = s.overallResult ?? 'N/F';
+    // Legacy aliases
+    map['{QualResult}'] = s.qualitativeResult ?? 'N/F';
+    map['{QuantResult}'] = s.quantitativeResult ?? 'N/F';
+    map['{OverallResult}'] = s.overallResult ?? 'N/F';
+
+    // ── Qualitative — Visual Inspection ──────────────────────────────────────
+    final q = s.qualitativeResults;
+    map['{Cha}'] = _qs(q['Chassis/Housing']);
+    map['{Con}'] = _qs(q['Controls/Switches']);
+    map['{Mou}'] = _qs(q['Mount']);
+    map['{Bat}'] = _qs(q['Battery/charger']);
+    map['{Cas}'] = _qs(q['Casters/Brakes']);
+    map['{Ind}'] = _qs(q['Indicator/Displays']);
+    map['{AC}'] = _qs(q['AC plug']);
+    map['{Lab}'] = _qs(q['Labeling']);
+    map['{Lin}'] = _qs(q['Line Cord']);
+    map['{Ala}'] = _qs(q['Alarms']);
+    map['{Scr}'] = _qs(q['Screen']);
+    map['{Hou}'] = _qs(q['Module Housing']);
+    map['{SPO}'] = _qs(q['SPO2 cable']);
+    map['{Tro}'] = _qs(q['Mounting/Trolley']);
+
+    // ── Qualitative — ECG Representation ─────────────────────────────────────
+    final e = s.ecgRepresentation;
+    map['{Atr}'] = _qs(e['Atrial Fibrillation']);
+    map['{Prem}'] = _qs(e['Premature ventricle contraction']);
+    map['{Ven}'] = _qs(e['Ventricle Fibrillation']);
+    map['{Paro}'] = _qs(e['Paroxysmal Atrial Tachycardia (PAT)']);
+    map['{Atrf}'] = _qs(e['Atrial Flutter']);
+    map['{Poly}'] = _qs(e['Polymorphic Ventricular Tachycardia (PVT)']);
+    map['{Rep}'] = _qs(
+        e['Representation of Standard signals (Triangle, Square, Sinusoid)']);
+    map['{ECG}'] = _qs(e[
+        'Represent ECG waveforms with different Amplitudes (0.5,1,1.5,2,2.5,3,3.5)']);
+
+    // ── Heart Rate (6 rows: default 40, 60, 80, 100, 150, 200 BPM) ──────────
+    final bool hr = s.showHrTable;
+    const hrDefaults = [40, 60, 80, 100, 150, 200];
+    for (int i = 0; i < hrDefaults.length; i++) {
+      final int defaultBpm = hrDefaults[i];
+      final MeasurementRow? row = hr && i < s.hrRows.length ? s.hrRows[i] : null;
+      // Use actual setting value from row (user may have changed it)
+      final int bpm = row != null ? row.settingValue.toInt() : defaultBpm;
+      if (!hr || row == null) {
+        map['{Heart_set$defaultBpm}'] = defaultBpm.toString();
+        map['{Heart_Ave$defaultBpm}'] = 'N/A';
+        map['{Heart_Error$defaultBpm}'] = 'N/A';
+        map['{Heart_Acc$defaultBpm}'] = 'N/A';
+        map['{Heart_Sta$defaultBpm}'] = 'N/A';
+        map['{Heart_unc$defaultBpm}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double err = (row.settingValue - avg).abs();
+        final range = MonitorConstants.hrAcceptedRange(row.settingValue);
+        // Map both the default key and the actual key (in case user changed the value)
+        for (final key in {defaultBpm, bpm}) {
+          map['{Heart_set$key}'] = bpm.toString();
+          map['{Heart_Ave$key}'] = avg.toStringAsFixed(2);
+          map['{Heart_Error$key}'] = err.toStringAsFixed(2);
+          map['{Heart_Acc$key}'] = '${range[0].toStringAsFixed(1)} - ${range[1].toStringAsFixed(1)}';
+          map['{Heart_Sta$key}'] = row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
+          map['{Heart_unc$key}'] = _typeA(row.reads, decimals: 4);
+        }
+      }
+    }
+
+    // ── SPO2 (5 rows: default 75, 85, 90, 94, 98 %) ──────────────────────────
+    final bool sp = s.showSpo2Table;
+    const spo2Defaults = [75, 85, 90, 94, 98];
+    for (int i = 0; i < spo2Defaults.length; i++) {
+      final int defaultVal = spo2Defaults[i];
+      final MeasurementRow? row =
+          sp && i < s.spo2Rows.length ? s.spo2Rows[i] : null;
+      final int val = row != null ? row.settingValue.toInt() : defaultVal;
+      if (!sp || row == null) {
+        map['{SPO2_Set$defaultVal}'] = defaultVal.toString();
+        map['{SPO2_Avg$defaultVal}'] = 'N/A';
+        map['{SPO2_Err$defaultVal}'] = 'N/A';
+        map['{SPO2_Acc$defaultVal}'] = 'N/A';
+        map['{SPO2_Sta$defaultVal}'] = 'N/A';
+        map['{SPO2_Unc$defaultVal}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double err = (row.settingValue - avg).abs();
+        final range = MonitorConstants.spo2AcceptedRange(row.settingValue);
+        for (final key in {defaultVal, val}) {
+          map['{SPO2_Set$key}'] = val.toString();
+          map['{SPO2_Avg$key}'] = avg.toStringAsFixed(2);
+          map['{SPO2_Err$key}'] = err.toStringAsFixed(2);
+          map['{SPO2_Acc$key}'] =
+              '${range[0].toStringAsFixed(1)} - ${range[1].toStringAsFixed(1)}';
+          map['{SPO2_Sta$key}'] =
+              row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
+          map['{SPO2_Unc$key}'] = _typeA(row.reads, decimals: 4);
+        }
+      }
+    }
+
+    // ── NIBP (6 pairs: sys/dia with defaults 60/30, 80/40, 100/60, 120/80, 180/140, 240/200) ──
+    final bool nb = s.showNibpTable;
+    const nibpSysDefaults = [60, 80, 100, 120, 180, 240];
+    const nibpDiaDefaults = [30, 40, 60, 80, 140, 200];
+    for (int i = 0; i < nibpSysDefaults.length; i++) {
+      final int defSys = nibpSysDefaults[i];
+      final int defDia = nibpDiaDefaults[i];
+      final int rowNum = i + 1; // 1-based index for word template
+      final NIBPRow? row = nb && i < s.nibpRows.length ? s.nibpRows[i] : null;
+      final int sys = row != null ? row.systolicSetting.toInt() : defSys;
+      final int dia = row != null ? row.diastolicSetting.toInt() : defDia;
+
+      if (!nb || row == null) {
+        // Systolic N/A — value-based keys
+        map['{Set_Sys$defSys}'] = defSys.toString();
+        map['{NIBP_S_Set$defSys}'] = defSys.toString();
+        map['{NIBP_S_Avg$defSys}'] = 'N/A';
+        map['{NIBP_S_Err$defSys}'] = 'N/A';
+        map['{NIBP_S_Acc$defSys}'] = 'N/A';
+        map['{NIBP_S_Sta$defSys}'] = 'N/A';
+        map['{NIBP_S_Unc$defSys}'] = 'N/A';
+        // Systolic N/A — index-based keys
+        map['{NIBP_S_Set$rowNum}'] = defSys.toString();
+        map['{NIBP_S_Avg$rowNum}'] = 'N/A';
+        map['{NIBP_S_Err$rowNum}'] = 'N/A';
+        map['{NIBP_S_Acc$rowNum}'] = 'N/A';
+        map['{NIBP_S_Sta$rowNum}'] = 'N/A';
+        map['{NIBP_S_Unc$rowNum}'] = 'N/A';
+        // Diastolic N/A — value-based keys
+        map['{Set_Dia$defDia}'] = defDia.toString();
+        map['{NIBP_D_Set$defDia}'] = defDia.toString();
+        map['{NIBP_D_Avg$defDia}'] = 'N/A';
+        map['{NIBP_D_Err$defDia}'] = 'N/A';
+        map['{NIBP_D_Acc$defDia}'] = 'N/A';
+        map['{NIBP_D_Sta$defDia}'] = 'N/A';
+        map['{NIBP_D_Unc$defDia}'] = 'N/A';
+        // Diastolic N/A — index-based keys
+        map['{NIBP_D_Set$rowNum}'] = defDia.toString();
+        map['{NIBP_D_Avg$rowNum}'] = 'N/A';
+        map['{NIBP_D_Err$rowNum}'] = 'N/A';
+        map['{NIBP_D_Acc$rowNum}'] = 'N/A';
+        map['{NIBP_D_Sta$rowNum}'] = 'N/A';
+        map['{NIBP_D_Unc$rowNum}'] = 'N/A';
+      } else {
+        // Systolic
+        final sysReads = row.systolicReads;
+        final sysAvg = sysReads.isEmpty
+            ? 0.0
+            : sysReads.reduce((a, b) => a + b) / sysReads.length;
+        final sysErr = (row.systolicSetting - sysAvg).abs();
+        final sysRange = MonitorConstants.nibpAcceptedRange(row.systolicSetting);
+        final sysSta = row.systolicStatus == true ? 'PASS' : row.systolicStatus == false ? 'FAIL' : 'N/A';
+        final sysUnc = _typeA(sysReads, decimals: 4);
+        final sysAcc = '${sysRange[0].toStringAsFixed(1)} - ${sysRange[1].toStringAsFixed(1)}';
+        // value-based keys
+        for (final k in {defSys, sys}) {
+          map['{Set_Sys$k}'] = sys.toString();
+          map['{NIBP_S_Set$k}'] = sys.toString();
+          map['{NIBP_S_Avg$k}'] = sysAvg.toStringAsFixed(2);
+          map['{NIBP_S_Err$k}'] = sysErr.toStringAsFixed(2);
+          map['{NIBP_S_Acc$k}'] = sysAcc;
+          map['{NIBP_S_Sta$k}'] = sysSta;
+          map['{NIBP_S_Unc$k}'] = sysUnc;
+        }
+        // index-based keys
+        map['{NIBP_S_Set$rowNum}'] = sys.toString();
+        map['{NIBP_S_Avg$rowNum}'] = sysAvg.toStringAsFixed(2);
+        map['{NIBP_S_Err$rowNum}'] = sysErr.toStringAsFixed(2);
+        map['{NIBP_S_Acc$rowNum}'] = sysAcc;
+        map['{NIBP_S_Sta$rowNum}'] = sysSta;
+        map['{NIBP_S_Unc$rowNum}'] = sysUnc;
+
+        // Diastolic
+        final diaReads = row.diastolicReads;
+        final diaAvg = diaReads.isEmpty
+            ? 0.0
+            : diaReads.reduce((a, b) => a + b) / diaReads.length;
+        final diaErr = (row.diastolicSetting - diaAvg).abs();
+        final diaRange = MonitorConstants.nibpAcceptedRange(row.diastolicSetting);
+        final diaSta = row.diastolicStatus == true ? 'PASS' : row.diastolicStatus == false ? 'FAIL' : 'N/A';
+        final diaUnc = _typeA(diaReads, decimals: 4);
+        final diaAcc = '${diaRange[0].toStringAsFixed(1)} - ${diaRange[1].toStringAsFixed(1)}';
+        // value-based keys
+        for (final k in {defDia, dia}) {
+          map['{Set_Dia$k}'] = dia.toString();
+          map['{NIBP_D_Set$k}'] = dia.toString();
+          map['{NIBP_D_Avg$k}'] = diaAvg.toStringAsFixed(2);
+          map['{NIBP_D_Err$k}'] = diaErr.toStringAsFixed(2);
+          map['{NIBP_D_Acc$k}'] = diaAcc;
+          map['{NIBP_D_Sta$k}'] = diaSta;
+          map['{NIBP_D_Unc$k}'] = diaUnc;
+        }
+        // index-based keys
+        map['{NIBP_D_Set$rowNum}'] = dia.toString();
+        map['{NIBP_D_Avg$rowNum}'] = diaAvg.toStringAsFixed(2);
+        map['{NIBP_D_Err$rowNum}'] = diaErr.toStringAsFixed(2);
+        map['{NIBP_D_Acc$rowNum}'] = diaAcc;
+        map['{NIBP_D_Sta$rowNum}'] = diaSta;
+        map['{NIBP_D_Unc$rowNum}'] = diaUnc;
+      }
+    }
+
+    // ── Respiration (4 rows: default 5, 10, 15, 30 BPM) ─────────────────────
+    final bool rr = s.showRespirationTable;
+    const rrDefaults = [5, 10, 15, 30];
+    for (int i = 0; i < rrDefaults.length; i++) {
+      final int defaultBpm = rrDefaults[i];
+      final MeasurementRow? row =
+          rr && i < s.respirationRows.length ? s.respirationRows[i] : null;
+      final int bpm = row != null ? row.settingValue.toInt() : defaultBpm;
+      if (!rr || row == null) {
+        map['{Resp_Set$defaultBpm}'] = defaultBpm.toString();
+        map['{Resp_Avg$defaultBpm}'] = 'N/A';
+        map['{Resp_Err$defaultBpm}'] = 'N/A';
+        map['{Resp_Acc$defaultBpm}'] = 'N/A';
+        map['{Resp_Sta$defaultBpm}'] = 'N/A';
+        map['{Resp_Unc$defaultBpm}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double err = (row.settingValue - avg).abs();
+        final range = MonitorConstants.respirationAcceptedRange(row.settingValue);
+        for (final key in {defaultBpm, bpm}) {
+          map['{Resp_Set$key}'] = bpm.toString();
+          map['{Resp_Avg$key}'] = avg.toStringAsFixed(2);
+          map['{Resp_Err$key}'] = err.toStringAsFixed(2);
+          map['{Resp_Acc$key}'] =
+              '${range[0].toStringAsFixed(1)} - ${range[1].toStringAsFixed(1)}';
+          map['{Resp_Sta$key}'] =
+              row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
+          map['{Resp_Unc$key}'] = _typeA(row.reads, decimals: 4);
+        }
+      }
+    }
+
+    // ── Temperature sensor 1 (3 rows: default 33, 37, 41 °C) ────────────────
+    final bool tm = s.showTempTables;
+    const tempDefaults = [33, 37, 41];
+    for (int i = 0; i < tempDefaults.length; i++) {
+      final int defaultVal = tempDefaults[i];
+      // find matching row by index (rows are ordered by tempSettings)
+      // tempSettings = [25, 33, 37, 41] → index offset: 33→1, 37→2, 41→3
+      final int rowIdx = i + 1; // skip the 25°C row
+      final MeasurementRow? row =
+          tm && rowIdx < s.temp1Rows.length ? s.temp1Rows[rowIdx] : null;
+      final int val = row != null ? row.settingValue.toInt() : defaultVal;
+      if (!tm || row == null) {
+        map['{Tem_Set$defaultVal}'] = defaultVal.toString();
+        map['{Tem_Avg$defaultVal}'] = 'N/A';
+        map['{Tem_Err$defaultVal}'] = 'N/A';
+        map['{Tem_Acc$defaultVal}'] = 'N/A';
+        map['{Tem_Sta$defaultVal}'] = 'N/A';
+        map['{Tem_Unc$defaultVal}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double err = (row.settingValue - avg).abs();
+        final range = MonitorConstants.tempAcceptedRange(row.settingValue);
+        for (final key in {defaultVal, val}) {
+          map['{Tem_Set$key}'] = val.toString();
+          map['{Tem_Avg$key}'] = avg.toStringAsFixed(3);
+          map['{Tem_Err$key}'] = err.toStringAsFixed(3);
+          map['{Tem_Acc$key}'] =
+              '${range[0].toStringAsFixed(2)} - ${range[1].toStringAsFixed(2)}';
+          map['{Tem_Sta$key}'] =
+              row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
+          map['{Tem_Unc$key}'] = _typeA(row.reads, decimals: 4);
+        }
+      }
+    }
+
+    // ── Temperature sensor 2 (3 rows: default 33, 37, 41 °C) ────────────────
+    for (int i = 0; i < tempDefaults.length; i++) {
+      final int defaultVal = tempDefaults[i];
+      final int rowIdx = i + 1;
+      final MeasurementRow? row =
+          tm && rowIdx < s.temp2Rows.length ? s.temp2Rows[rowIdx] : null;
+      final int val = row != null ? row.settingValue.toInt() : defaultVal;
+      if (!tm || row == null) {
+        map['{Tem2_Set$defaultVal}'] = defaultVal.toString();
+        map['{Tem2_Avg$defaultVal}'] = 'N/A';
+        map['{Tem2_Err$defaultVal}'] = 'N/A';
+        map['{Tem2_Acc$defaultVal}'] = 'N/A';
+        map['{Tem2_Sta$defaultVal}'] = 'N/A';
+        map['{Tem2_Unc$defaultVal}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double err = (row.settingValue - avg).abs();
+        final range = MonitorConstants.tempAcceptedRange(row.settingValue);
+        for (final key in {defaultVal, val}) {
+          map['{Tem2_Set$key}'] = val.toString();
+          map['{Tem2_Avg$key}'] = avg.toStringAsFixed(3);
+          map['{Tem2_Err$key}'] = err.toStringAsFixed(3);
+          map['{Tem2_Acc$key}'] =
+              '${range[0].toStringAsFixed(2)} - ${range[1].toStringAsFixed(2)}';
+          map['{Tem2_Sta$key}'] =
+              row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
+          map['{Tem2_Unc$key}'] = _typeA(row.reads, decimals: 4);
+        }
+      }
+    }
+
+    return map;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PATCH DOCUMENT
   // ═══════════════════════════════════════════════════════════════════════════
 
   static String _patchDocument(String xml, CalibrationSession s) {
-    String doc = xml;
+    final Map<String, String> replacements = _buildMap(s);
 
-    // ── Certificate number & page footers ────────────────────────────────────
-    final String certNo = s.certificateNumber ?? 'XXX/XXXX';
-    final List<String> cnParts = certNo.split('/');
-    final String cnLeft = cnParts.first.trim();
-    final String cnRight = cnParts.length > 1 ? cnParts.last.trim() : 'XXXX';
-    const String totalPages = '4';
-
-    doc = doc.replaceAll('UMECC xxx /', 'UMECC $cnLeft /');
-    doc = doc.replaceAll('xxxx ( xx pages)', '$cnRight ( $totalPages pages)');
-    doc = doc.replaceAll(
-        ' (UMECCxxx/xxxx: Page1/xx)', ' (UMECC$certNo: Page1/$totalPages)');
-    doc = doc.replaceAll(
-        '(UMECC xx/xxxx: Page2/xx)', '(UMECC$certNo: Page2/$totalPages)');
-    doc = doc.replaceAll(
-        '(UMECC xx/xxxx: Page3/xx)', '(UMECC$certNo: Page3/$totalPages)');
-    doc = doc.replaceAll(
-        '(UMECC xx/xxxx: Page4/xx)', '(UMECC$certNo: Page4/$totalPages)');
-
-    // ── Test date (all occurrences of Xx/xx/xxxx) ────────────────────────────
-    doc = doc.replaceAll('Xx/xx/xxxx', _fmt(s.testDate));
-
-    // ── Engineer name (all page footers) ────────────────────────────────────
-    doc = doc.replaceAll('م / -------', 'م / ${s.engineerName}');
-    doc = doc.replaceAll('م /--------', 'م / ${s.engineerName}');
-    doc = doc.replaceAll('م/ ---------', 'م / ${s.engineerName}');
-
-    // ── Hospital / customer (XXXXX large blue cell) ──────────────────────────
-    doc = doc.replaceAll('xxxxx', _esc(s.hospitalName));
-
-    // ── Device fields: 3 sequential 'xxxx' occurrences in device table ───────
-    doc = _replaceNth(
-        doc, '<w:t>xxxx</w:t>', 1, '<w:t>${_esc(s.manufacturer)}</w:t>');
-    doc = _replaceNth(doc, '<w:t>xxxx</w:t>', 1, '<w:t>${_esc(s.model)}</w:t>');
-    doc = _replaceNth(
-        doc, '<w:t>xxxx</w:t>', 1, '<w:t>${_esc(s.serialNumber)}</w:t>');
-
-    // ── Result table: qualitative, quantitative, overall result ──────────────
-    final String qualRes = (s.qualitativeResult?.isNotEmpty == true)
-        ? s.qualitativeResult!
-        : 'PASS';
-    final String quantRes = (s.quantitativeResult?.isNotEmpty == true)
-        ? s.quantitativeResult!
-        : 'PASS';
-    final String overallRes = s.overallResult == 'PASS' ? 'PASS' : 'FAIL';
-
-    doc = _replaceNth(doc, '<w:t>xxxx</w:t>', 1, '<w:t>$qualRes</w:t>');
-    doc = _replaceNth(doc, '<w:t>xxxx</w:t>', 1, '<w:t>$quantRes</w:t>');
-    doc = _replaceNth(doc, '<w:t>xxxx</w:t>', 1, '<w:t>$overallRes</w:t>');
-
-    // Remaining stray xxxx → dash
-    doc = doc.replaceAll('<w:t>xxxx</w:t>', '<w:t>-</w:t>');
-
-    // ── Qualitative rows ──────────────────────────────────────────────────────
-    final q = s.qualitativeResults;
-    final e = s.ecgRepresentation;
-
-    // Visual Inspection (paraId layout per row: [rowId, itemL_para, statusL, itemR_para, statusR])
-    doc = _para(doc, '1198940D', _qs(q['Chassis/Housing']));
-    doc = _para(doc, '02006B54', _qs(q['Controls /Switches']));
-    doc = _para(doc, '2EFD8B61', _qs(q['Mount']));
-    doc = _para(doc, '4E8B4941', _qs(q['Battery/charger']));
-    doc = _para(doc, '1605DCD3', _qs(q['Casters/Brakes']));
-    doc = _para(doc, '54231E35', _qs(q['Indicator/Displays']));
-    doc = _para(doc, '59D2CE67', _qs(q['AC plug']));
-    doc = _para(doc, '02E3CC1C', _qs(q['Labeling']));
-    doc = _para(doc, '1B881361', _qs(q['Line Cord']));
-    doc = _para(doc, '4190811B', _qs(q['Alarms']));
-    doc = _para(doc, '29AE7E4C', _qs(q['Screen']));
-    doc = _para(doc, '177A8D0F', _qs(q['Module Housing']));
-    doc = _para(doc, '6D823AB8', _qs(q['SPO2 cable']));
-    doc = _para(doc, '609C1DFA', _qs(q['Mounting/Trolley']));
-
-    // ECG Representation
-    doc = _para(doc, '64A76E59', _qs(e['Atrial Fibrillation']));
-    doc = _para(doc, '0F19D85D', _qs(e['Premature ventricle contraction']));
-    doc = _para(doc, '316BC411', _qs(e['Ventricle Fibrillation']));
-    doc = _para(doc, '523CDB93', _qs(e['Paroxysmal Atrial Tachycardia (PAT)']));
-    doc = _para(doc, '78B0C063', _qs(e['Atrial Flutter']));
-    doc = _para(
-        doc, '179754A4', _qs(e['Polymorphic Ventricular Tachycardia (PVT)']));
-    doc = _para(
-        doc,
-        '77871EBC',
-        _qs(e[
-            'Representation of Standard signals (Triangle, Square, Sinusoid)']));
-    doc = _para(
-        doc,
-        '137777A0',
-        _qs(e[
-            'Represent ECG waveforms with different Amplitudes 0.5, 1,1.5,2,2.5,3,3.5']));
-
-    // ── Heart Rate ────────────────────────────────────────────────────────────
-    final bool hr = s.showHrTable;
-    final List<MeasurementRow> hrRows = s.hrRows;
-    doc = _measRow(doc, hr && hrRows.isNotEmpty ? hrRows[0] : null,
-        avg: '0721C277',
-        err: '352E0F5F',
-        sta: '697B3582',
-        unc: '36C0A367',
-        vis: hr);
-    doc = _measRow(doc, hr && hrRows.length > 1 ? hrRows[1] : null,
-        avg: '24403607',
-        err: '4E656968',
-        sta: '725EEF2D',
-        unc: '3F0A9885',
-        vis: hr);
-    doc = _measRow(doc, hr && hrRows.length > 2 ? hrRows[2] : null,
-        avg: '19085E37',
-        err: '71131B20',
-        sta: '1AE89D75',
-        unc: '68ED52B0',
-        vis: hr);
-    doc = _measRow(doc, hr && hrRows.length > 3 ? hrRows[3] : null,
-        avg: '3B22019C',
-        err: '22A49125',
-        sta: '09471107',
-        unc: '0664E7ED',
-        vis: hr);
-    doc = _measRow(doc, hr && hrRows.length > 4 ? hrRows[4] : null,
-        avg: '062B76EA',
-        err: '4C7D9DB1',
-        sta: '3DCA4F84',
-        unc: '1559564B',
-        vis: hr);
-    doc = _measRow(doc, hr && hrRows.length > 5 ? hrRows[5] : null,
-        avg: '3471BF9F',
-        err: '0AD108D0',
-        sta: '45874329',
-        unc: '71284984',
-        vis: hr);
-
-    // ── Respiration ───────────────────────────────────────────────────────────
-    final bool rr = s.showRespirationTable;
-    final List<MeasurementRow> rrRows = s.respirationRows;
-    doc = _measRow(doc, rr && rrRows.isNotEmpty ? rrRows[0] : null,
-        avg: '32C9FECC',
-        err: '0A40B074',
-        sta: '0BCD65DB',
-        unc: '61C9495D',
-        vis: rr);
-    doc = _measRow(doc, rr && rrRows.length > 1 ? rrRows[1] : null,
-        avg: '39A62618',
-        err: '36102F40',
-        sta: '3C684369',
-        unc: '06EED78F',
-        vis: rr);
-    doc = _measRow(doc, rr && rrRows.length > 2 ? rrRows[2] : null,
-        avg: '166F2289',
-        err: '408C90E6',
-        sta: '677240AE',
-        unc: '25283226',
-        vis: rr);
-    doc = _measRow(doc, rr && rrRows.length > 3 ? rrRows[3] : null,
-        avg: '112492A5',
-        err: '431A8667',
-        sta: '669E0904',
-        unc: '57CCD151',
-        vis: rr);
-
-    // ── NIBP ──────────────────────────────────────────────────────────────────
-    final bool nb = s.showNibpTable;
-    final List<NIBPRow> nbRows = s.nibpRows;
-    // Each NIBPRow covers one systolic+diastolic pair (two template rows)
-    doc = _nibpRow(doc, nb && nbRows.isNotEmpty ? nbRows[0] : null,
-        avg: '7E1124CC', err: '72BDB093', sta: '5599C6E3', vis: nb, sys: true);
-    doc = _nibpRow(doc, nb && nbRows.isNotEmpty ? nbRows[0] : null,
-        avg: '071142CB', err: '3C3C26B6', sta: '3EB1A636', vis: nb, sys: false);
-    doc = _nibpRow(doc, nb && nbRows.length > 1 ? nbRows[1] : null,
-        avg: '1B008381', err: '7DC1B909', sta: '6368A5B8', vis: nb, sys: true);
-    doc = _nibpRow(doc, nb && nbRows.length > 1 ? nbRows[1] : null,
-        avg: '50D39417', err: '5FE50C12', sta: '261E6194', vis: nb, sys: false);
-    doc = _nibpRow(doc, nb && nbRows.length > 2 ? nbRows[2] : null,
-        avg: '2C521C61', err: '65178B7B', sta: '76979D41', vis: nb, sys: true);
-    doc = _nibpRow(doc, nb && nbRows.length > 2 ? nbRows[2] : null,
-        avg: '60E319A7', err: '035C13A2', sta: '46D7D1EC', vis: nb, sys: false);
-    doc = _nibpRow(doc, nb && nbRows.length > 3 ? nbRows[3] : null,
-        avg: '7462815F', err: '020A161F', sta: '5A432B55', vis: nb, sys: true);
-    doc = _nibpRow(doc, nb && nbRows.length > 3 ? nbRows[3] : null,
-        avg: '6CCDA4DB', err: '283A5C8C', sta: '2CE00778', vis: nb, sys: false);
-    doc = _nibpRow(doc, nb && nbRows.length > 4 ? nbRows[4] : null,
-        avg: '70F72C55', err: '556CA620', sta: '1455D17F', vis: nb, sys: true);
-    doc = _nibpRow(doc, nb && nbRows.length > 4 ? nbRows[4] : null,
-        avg: '2B05CA08', err: '1824720B', sta: '11F36641', vis: nb, sys: false);
-
-    // ── SPO2 ──────────────────────────────────────────────────────────────────
-    final bool sp = s.showSpo2Table;
-    final List<MeasurementRow> spRows = s.spo2Rows;
-    doc = _measRow(doc, sp && spRows.isNotEmpty ? spRows[0] : null,
-        avg: '2FCA6772',
-        err: '02EF5BFB',
-        sta: '5D36EA65',
-        unc: '1ECB128A',
-        vis: sp);
-    doc = _measRow(doc, sp && spRows.length > 1 ? spRows[1] : null,
-        avg: '21AE1A66',
-        err: '2F377354',
-        sta: '060736A9',
-        unc: '5DC8B14F',
-        vis: sp);
-    doc = _measRow(doc, sp && spRows.length > 2 ? spRows[2] : null,
-        avg: '672FADB0',
-        err: '2B2728F5',
-        sta: '7742A5C1',
-        unc: '52DDCD81',
-        vis: sp);
-    doc = _measRow(doc, sp && spRows.length > 3 ? spRows[3] : null,
-        avg: '4746BB66',
-        err: '7F9011F8',
-        sta: '1FBC8D04',
-        unc: '1F7A8974',
-        vis: sp);
-    doc = _measRow(doc, sp && spRows.length > 4 ? spRows[4] : null,
-        avg: '6CC27AD1',
-        err: '7BEE8687',
-        sta: '4659650C',
-        unc: '6E865805',
-        vis: sp);
-
-    // ── Temperature MODULE 1 ──────────────────────────────────────────────────
-    final bool tm = s.showTempTables;
-    final List<MeasurementRow> t1 = s.temp1Rows;
-    doc = _measRow(doc, tm && t1.isNotEmpty ? t1[0] : null,
-        avg: '6BA78C59',
-        err: '15C027AC',
-        sta: '3A662509',
-        unc: '7BA7A6A7',
-        vis: tm);
-    doc = _measRow(doc, tm && t1.length > 1 ? t1[1] : null,
-        avg: '3BDFF70B',
-        err: '1A15281B',
-        sta: '5FD6543B',
-        unc: '3C6A3F17',
-        vis: tm);
-    doc = _measRow(doc, tm && t1.length > 2 ? t1[2] : null,
-        avg: '5E9E0087',
-        err: '6E872C2F',
-        sta: '4E777064',
-        unc: '571F82F2',
-        vis: tm);
-
-    // ── Temperature MODULE 2 ──────────────────────────────────────────────────
-    final List<MeasurementRow> t2 = s.temp2Rows;
-    doc = _measRow(doc, tm && t2.isNotEmpty ? t2[0] : null,
-        avg: '50D4E4C3',
-        err: '1258E602',
-        sta: '0148687B',
-        unc: '51DCDB2C',
-        vis: tm);
-    doc = _measRow(doc, tm && t2.length > 1 ? t2[1] : null,
-        avg: '6051FA0F',
-        err: '43F300A5',
-        sta: '49DECED0',
-        unc: '03B0EDD6',
-        vis: tm);
-    doc = _measRow(doc, tm && t2.length > 2 ? t2[2] : null,
-        avg: '69440E7D',
-        err: '72ECD3B5',
-        sta: '6D5C9F3B',
-        unc: '15558117',
-        vis: tm);
+    // Word splits placeholders like {Cha} across runs with different rPr.
+    // Strategy: within each <w:p>, collapse ALL run text into the first run,
+    // do replacements, then restore.
+    String doc = _collapseAndReplace(xml, replacements);
 
     return doc;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ROW FILLERS
+  // COLLAPSE RUNS, REPLACE, RESTORE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static String _measRow(
-    String doc,
-    MeasurementRow? row, {
-    required String avg,
-    required String err,
-    required String sta,
-    required String unc,
-    required bool vis,
-  }) {
-    if (!vis || row == null) {
-      doc = _para(doc, avg, 'NF');
-      doc = _para(doc, err, 'NF');
-      doc = _para(doc, sta, 'NF');
-      doc = _para(doc, unc, '-');
-    } else {
-      final double a = row.computedAverage;
-      final double e = (row.settingValue - a).abs();
-      doc = _para(doc, avg, a.toStringAsFixed(2));
-      doc = _para(doc, err, e.toStringAsFixed(2));
-      doc = _para(doc, sta,
-          row.status == true ? 'PASS' : (row.status == false ? 'FAIL' : 'NF'));
-      doc = _para(doc, unc, _typeA(row.reads));
-    }
-    return doc;
-  }
+  static String _collapseAndReplace(
+      String xml, Map<String, String> replacements) {
+    final paraRe = RegExp(r'<w:p[ >].*?</w:p>', dotAll: true);
 
-  static String _nibpRow(
-    String doc,
-    NIBPRow? row, {
-    required String avg,
-    required String err,
-    required String sta,
-    required bool vis,
-    required bool sys,
-  }) {
-    if (!vis || row == null) {
-      doc = _para(doc, avg, 'NF');
-      doc = _para(doc, err, 'NF');
-      doc = _para(doc, sta, 'NF');
-    } else {
-      final List<double> reads = sys ? row.systolicReads : row.diastolicReads;
-      final double a =
-          reads.isEmpty ? 0 : reads.reduce((a, b) => a + b) / reads.length;
-      final double set = sys ? row.systolicSetting : row.diastolicSetting;
-      final double e = (set - a).abs();
-      final bool? st = sys ? row.systolicStatus : row.diastolicStatus;
-      doc = _para(doc, avg, a.toStringAsFixed(1));
-      doc = _para(doc, err, e.toStringAsFixed(1));
-      doc =
-          _para(doc, sta, st == true ? 'PASS' : (st == false ? 'FAIL' : 'NF'));
-    }
-    return doc;
-  }
+    return xml.replaceAllMapped(paraRe, (m) {
+      final String para = m.group(0)!;
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LOW-LEVEL HELPERS
-  // ═══════════════════════════════════════════════════════════════════════════
+      // Collect all <w:t> text values in order (ignoring pPr content)
+      final tRe = RegExp(r'<w:t(?:[^>]*)>(.*?)</w:t>', dotAll: true);
+      final fullText = tRe.allMatches(para).map((r) => r.group(1)!).join();
 
-  /// Inject plain text into the empty `<w:p>` with the given w14:paraId.
-  static String _para(String doc, String paraId, String value) {
-    final String marker = 'w14:paraId="$paraId"';
-    final int mi = doc.indexOf(marker);
-    if (mi < 0) return doc;
-    final int close = doc.indexOf('</w:p>', mi);
-    if (close < 0) return doc;
-
-    const String rPr = '<w:rPr>'
-        '<w:rFonts w:asciiTheme="majorBidi" w:hAnsiTheme="majorBidi" w:cstheme="majorBidi"/>'
-        '<w:sz w:val="24"/><w:szCs w:val="24"/>'
-        '</w:rPr>';
-    final String run =
-        '<w:r>$rPr<w:t xml:space="preserve">${_esc(value)}</w:t></w:r>';
-
-    return doc.substring(0, close) + run + doc.substring(close);
-  }
-
-  /// Replace the Nth occurrence of [search] with [replace].
-  static String _replaceNth(String text, String search, int n, String replace) {
-    int count = 0;
-    int idx = 0;
-    while (true) {
-      idx = text.indexOf(search, idx);
-      if (idx < 0) return text;
-      count++;
-      if (count == n) {
-        return text.substring(0, idx) +
-            replace +
-            text.substring(idx + search.length);
+      // Check if this paragraph contains any placeholder
+      bool hasPlaceholder = false;
+      for (final key in replacements.keys) {
+        if (fullText.contains(_unesc(key))) {
+          hasPlaceholder = true;
+          break;
+        }
       }
-      idx += search.length;
-    }
+      if (!hasPlaceholder) return para;
+
+      // Apply replacements to the full text
+      String replaced = fullText;
+      for (final entry in replacements.entries) {
+        replaced = replaced.replaceAll(_unesc(entry.key), _unesc(entry.value));
+      }
+
+      // Split paragraph into pPr part and runs part
+      // pPr always comes before any <w:r>
+      final pPrRe = RegExp(r'^(.*?)(<w:r[ >])', dotAll: true);
+      final pPrMatch = pPrRe.firstMatch(para);
+      final String beforeRuns = pPrMatch != null ? pPrMatch.group(1)! : '';
+      // Everything from the closing tag of the paragraph
+      final String paraClose = '</w:p>';
+
+      // Only match runs (not pPr)
+      final runRe = RegExp(r'<w:r(?:[ >]).*?</w:r>', dotAll: true);
+      final runs = runRe.allMatches(para).toList();
+      if (runs.isEmpty) return para;
+
+      // Use first run's rPr for the merged run
+      final firstRun = runs.first.group(0)!;
+      final rPrRe = RegExp(r'<w:rPr>.*?</w:rPr>', dotAll: true);
+      final rPr = rPrRe.firstMatch(firstRun)?.group(0) ?? '';
+      final space =
+          replaced.startsWith(' ') || replaced.endsWith(' ') ? ' preserve' : '';
+      final newRun =
+          '<w:r>$rPr<w:t xml:space="$space">${_esc(replaced)}</w:t></w:r>';
+
+      // Rebuild: pPr + single merged run + </w:p>
+      return '$beforeRuns$newRun$paraClose';
+    });
   }
 
+  // ── Unescape XML entities back to plain text ──────────────────────────────
+  static String _unesc(String v) => v
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&apos;', "'");
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HELPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// ItemStatus → short label for the certificate
   static String _qs(ItemStatus? s) {
-    if (s == null) return '';
+    if (s == null) return 'N/A';
     switch (s) {
       case ItemStatus.pass:
         return 'Pass';
@@ -462,22 +530,22 @@ class CertificateService {
     }
   }
 
-  static String _fmt(DateTime? d) {
-    if (d == null) return 'XX/XX/XXXX';
+  static String _fmtDate(DateTime? d) {
+    if (d == null) return '--/--/----';
     return '${d.day.toString().padLeft(2, '0')}/'
         '${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
-  /// Type A (standard uncertainty of the mean).
-  static String _typeA(List<double> reads) {
-    if (reads.length < 2) return '0.0000';
+  /// Type A uncertainty of the mean: s / sqrt(n)
+  static String _typeA(List<double> reads, {int decimals = 4}) {
+    if (reads.length < 2) return '0.${'0' * decimals}';
     final double mean = reads.reduce((a, b) => a + b) / reads.length;
     double sumSq = 0;
     for (final r in reads) {
       sumSq += (r - mean) * (r - mean);
     }
     final double s = _sqrt(sumSq / (reads.length - 1));
-    return (s / _sqrt(reads.length.toDouble())).toStringAsFixed(4);
+    return (s / _sqrt(reads.length.toDouble())).toStringAsFixed(decimals);
   }
 
   static double _sqrt(double v) {
@@ -489,6 +557,7 @@ class CertificateService {
     return x;
   }
 
+  /// Escape XML special characters
   static String _esc(String v) => v
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')

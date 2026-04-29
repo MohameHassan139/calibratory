@@ -244,7 +244,7 @@ class _StatsRow extends StatelessWidget {
             StatCard(
               label: 'Passed',
               value: calibCtrl.history
-                  .where((h) => h.overallResult == true)
+                  .where((h) => h.overallResult == 'PASS')
                   .length
                   .toString(),
               icon: Icons.check_circle_outline,
@@ -254,7 +254,7 @@ class _StatsRow extends StatelessWidget {
             StatCard(
               label: 'Failed',
               value: calibCtrl.history
-                  .where((h) => h.overallResult == false)
+                  .where((h) => h.overallResult == 'FAIL')
                   .length
                   .toString(),
               icon: Icons.cancel_outlined,

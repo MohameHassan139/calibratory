@@ -9,15 +9,15 @@ class RecentSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color statusColor = session.overallResult == true
+    final Color statusColor = session.overallResult == 'PASS'
         ? AppColors.success
-        : session.overallResult == false
+        : session.overallResult == 'FAIL'
             ? AppColors.error
             : AppColors.warning;
 
-    final IconData statusIcon = session.overallResult == true
+    final IconData statusIcon = session.overallResult == 'PASS'
         ? Icons.check_circle_outline
-        : session.overallResult == false
+        : session.overallResult == 'FAIL'
             ? Icons.cancel_outlined
             : Icons.pending_outlined;
 

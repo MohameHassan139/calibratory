@@ -24,8 +24,8 @@ void main() async {
   await Firebase.initializeApp();
 
   await Supabase.initialize(
-    url: 'https://brvdlavrbafptzcmdqfq.supabase.co',
-    anonKey: 'sb_publishable_T82kFbE3qGgsZs7CAFyxQA_4M1kjyhG',
+    url: 'https://asqurcktgqwatfviwjuy.supabase.co',
+    anonKey: 'sb_publishable_hu9LmF5-RVYXwY9vuu9mRA_vuninfgG',
   );
 
   Get.put(AuthController(), permanent: true);
