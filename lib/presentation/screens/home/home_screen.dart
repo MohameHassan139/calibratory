@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
@@ -11,6 +12,7 @@ import '../../widgets/home/recent_session_card.dart';
 import '../history/history_screen.dart';
 import '../price/price_offer_screen.dart';
 import '../profile/profile_screen.dart';
+import '../devices/devices_management_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -306,18 +308,10 @@ class _QuickActions extends StatelessWidget {
             .fadeIn(duration: 400.ms, delay: 100.ms)
             .slideX(begin: -0.05, end: 0),
         const SizedBox(height: 12),
-        Obx(() => ActionCard(
-              icon: Icons.description_outlined,
-              title: 'Create Price Offer',
-              subtitle:
-                  'Generate maintenance quotes and service level agreements.',
-              badge: calibCtrl.history
-                      .where((h) => h.status == 'draft')
-                      .isNotEmpty
-                  ? '${calibCtrl.history.where((h) => h.status == 'draft').length} Drafts pending'
-                  : null,
-              onTap: () => Get.toNamed(AppRoutes.priceOffer),
-            )).animate(delay: 200.ms).fadeIn().slideX(begin: -0.05, end: 0),
+        _PriceAdjustmentsCard()
+            .animate(delay: 200.ms)
+            .fadeIn()
+            .slideX(begin: -0.05, end: 0),
         const SizedBox(height: 12),
         ActionCard(
           icon: Icons.history_edu_outlined,
@@ -326,6 +320,139 @@ class _QuickActions extends StatelessWidget {
           onTap: () {},
         ).animate(delay: 300.ms).fadeIn().slideX(begin: -0.05, end: 0),
       ],
+    );
+  }
+}
+
+// ── Price Adjustments Card ────────────────────────────────────────────────────
+
+class _PriceAdjustmentsCard extends StatelessWidget {
+  const _PriceAdjustmentsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: FirebaseFirestore.instance.collection('devices').snapshots(),
+      builder: (context, snapshot) {
+        final total = snapshot.data?.docs.length ?? 0;
+        // progress = devices with both prices set / total (or just a fixed demo)
+        final filled = snapshot.data?.docs.where((d) {
+              final data = d.data();
+              return (data['function_price'] ?? 0) > 0 &&
+                  (data['safety_price'] ?? 0) > 0;
+            }).length ??
+            0;
+        final progress = total == 0 ? 0.0 : filled / total;
+
+        return GestureDetector(
+          onTap: () => Get.to(() => const DevicesManagementScreen()),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.textPrimary.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icon box
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDE7F6),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.local_offer_rounded,
+                      color: Color(0xFF7C3AED), size: 26),
+                ),
+                const SizedBox(width: 16),
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Price Adjustments',
+                              style: TextStyle(
+                                fontFamily: 'Syne',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded,
+                              color: AppColors.textHint, size: 22),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Update global pricing for spare\nparts and technician hours.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Progress bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 6,
+                          backgroundColor: AppColors.border,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF7C3AED)),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            total == 0
+                                ? 'NO DEVICES YET'
+                                : '$filled / $total DEVICES PRICED',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textHint,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            total == 0
+                                ? '0%'
+                                : '${(progress * 100).toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF7C3AED),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

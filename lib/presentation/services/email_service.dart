@@ -17,7 +17,7 @@ class EmailService {
     try {
       // Replace with your deployed Firebase Cloud Function URL
       const functionUrl =
-          'https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/sendCertificateEmail';
+          'https://us-central1-ourapp-7b3f5.cloudfunctions.net/sendCertificateEmail';
 
       final response = await http.post(
         Uri.parse(functionUrl),
@@ -49,7 +49,7 @@ class EmailService {
   }) async {
     try {
       const functionUrl =
-          'https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/sendPriceOfferEmail';
+          'https://us-central1-ourapp-7b3f5.cloudfunctions.net/sendPriceOfferEmail';
 
       final response = await http.post(
         Uri.parse(functionUrl),
