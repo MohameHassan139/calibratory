@@ -21,9 +21,9 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Obx(() => _ProfileHeader(auth: auth)),
+            _ProfileHeader(auth: auth),
             const SizedBox(height: 28),
-            Obx(() => _ProfileStats(calibCtrl: calibCtrl)),
+            _ProfileStats(calibCtrl: calibCtrl),
             const SizedBox(height: 24),
             _SettingsGroup(
               title: 'Account',
@@ -31,7 +31,7 @@ class ProfileScreen extends StatelessWidget {
                 _SettingsItem(
                   icon: Icons.person_outline,
                   label: 'Edit Profile',
-                  onTap: () {},
+                  onTap: () => _showEditProfileDialog(context, auth),
                 ),
                 _SettingsItem(
                   icon: Icons.phone_outlined,
@@ -42,6 +42,11 @@ class ProfileScreen extends StatelessWidget {
                         style: const TextStyle(
                             fontSize: 13, color: AppColors.textSecondary),
                       )),
+                ),
+                _SettingsItem(
+                  icon: Icons.lock_outline,
+                  label: 'Change Password',
+                  onTap: () => _showChangePasswordDialog(context, auth),
                 ),
               ],
             ),
@@ -74,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
                   icon: Icons.logout_rounded,
                   label: 'Sign Out',
                   isDestructive: true,
-                  onTap: () => Get.find<AuthController>().logout(),
+                  onTap: () => _showLogoutConfirmation(context, auth),
                 ),
               ],
             ),
@@ -88,6 +93,205 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _showEditProfileDialog(BuildContext context, AuthController auth) {
+    final fullNameCtrl = TextEditingController(
+      text: auth.appUser.value?.fullName ?? '',
+    );
+    final phoneCtrl = TextEditingController(
+      text: auth.appUser.value?.phone ?? '',
+    );
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Edit Profile'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: fullNameCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Full Name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: phoneCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Phone Number',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          Obx(() => ElevatedButton(
+                onPressed: auth.isLoading.value
+                    ? null
+                    : () {
+                        auth.updateProfile(
+                          fullName: fullNameCtrl.text,
+                          phone: phoneCtrl.text,
+                        );
+                      },
+                child: auth.isLoading.value
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Save'),
+              )),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context, AuthController auth) {
+    final currentPasswordCtrl = TextEditingController();
+    final newPasswordCtrl = TextEditingController();
+    final confirmPasswordCtrl = TextEditingController();
+    final showCurrentPassword = false.obs;
+    final showNewPassword = false.obs;
+    final showConfirmPassword = false.obs;
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Change Password'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Obx(() => TextField(
+                    controller: currentPasswordCtrl,
+                    obscureText: !showCurrentPassword.value,
+                    decoration: InputDecoration(
+                      labelText: 'Current Password',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(showCurrentPassword.value
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () => showCurrentPassword.value =
+                            !showCurrentPassword.value,
+                      ),
+                    ),
+                  )),
+              const SizedBox(height: 16),
+              Obx(() => TextField(
+                    controller: newPasswordCtrl,
+                    obscureText: !showNewPassword.value,
+                    decoration: InputDecoration(
+                      labelText: 'New Password',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(showNewPassword.value
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () =>
+                            showNewPassword.value = !showNewPassword.value,
+                      ),
+                    ),
+                  )),
+              const SizedBox(height: 16),
+              Obx(() => TextField(
+                    controller: confirmPasswordCtrl,
+                    obscureText: !showConfirmPassword.value,
+                    decoration: InputDecoration(
+                      labelText: 'Confirm Password',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(showConfirmPassword.value
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () => showConfirmPassword.value =
+                            !showConfirmPassword.value,
+                      ),
+                    ),
+                  )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          Obx(() => ElevatedButton(
+                onPressed: auth.isLoading.value
+                    ? null
+                    : () {
+                        if (newPasswordCtrl.text != confirmPasswordCtrl.text) {
+                          Get.snackbar('Error', 'Passwords do not match',
+                              snackPosition: SnackPosition.BOTTOM);
+                          return;
+                        }
+                        if (newPasswordCtrl.text.length < 6) {
+                          Get.snackbar(
+                              'Error', 'Password must be at least 6 characters',
+                              snackPosition: SnackPosition.BOTTOM);
+                          return;
+                        }
+                        auth.changePassword(
+                          currentPassword: currentPasswordCtrl.text,
+                          newPassword: newPasswordCtrl.text,
+                        );
+                      },
+                child: auth.isLoading.value
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Change'),
+              )),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutConfirmation(BuildContext context, AuthController auth) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              auth.logout();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child:
+                const Text('Sign Out', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Sub-widgets ───────────────────────────────────────────────────────────────
@@ -98,73 +302,73 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Stack(
-          alignment: Alignment.bottomRight,
+    return Obx(() => Column(
           children: [
-            CircleAvatar(
-              radius: 48,
-              backgroundColor: AppColors.accent.withValues(alpha: 0.1),
-              backgroundImage: auth.appUser.value?.photoUrl != null
-                  ? NetworkImage(auth.appUser.value!.photoUrl!)
-                  : null,
-              child: auth.appUser.value?.photoUrl == null
-                  ? Text(
-                      auth.appUser.value?.fullName
-                              .substring(0, 1)
-                              .toUpperCase() ??
-                          'U',
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.accent,
-                      ),
-                    )
-                  : null,
+            Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                CircleAvatar(
+                  radius: 48,
+                  backgroundColor: AppColors.accent.withValues(alpha: 0.1),
+                  backgroundImage: auth.appUser.value?.photoUrl != null
+                      ? NetworkImage(auth.appUser.value!.photoUrl!)
+                      : null,
+                  child: auth.appUser.value?.photoUrl == null
+                      ? Text(
+                          (auth.appUser.value?.fullName.isNotEmpty ?? false)
+                              ? auth.appUser.value!.fullName[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.accent,
+                          ),
+                        )
+                      : null,
+                ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: AppColors.accent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit_rounded,
+                      size: 14, color: Colors.white),
+                ),
+              ],
             ),
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                color: AppColors.accent,
-                shape: BoxShape.circle,
+            const SizedBox(height: 16),
+            Text(
+              auth.appUser.value?.fullName ?? 'Engineer',
+              style: const TextStyle(
+                fontFamily: 'Syne',
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
               ),
-              child:
-                  const Icon(Icons.edit_rounded, size: 14, color: Colors.white),
+            ),
+            Text(
+              auth.appUser.value?.email ?? '',
+              style:
+                  const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'UMECC · Calibration Engineer',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          auth.appUser.value?.fullName ?? 'Engineer',
-          style: const TextStyle(
-            fontFamily: 'Syne',
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        Text(
-          auth.appUser.value?.email ?? '',
-          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Text(
-            'UMECC · Calibration Engineer',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.accent,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
-    );
+        ));
   }
 }
 
@@ -174,26 +378,27 @@ class _ProfileStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatItem(
-            value: calibCtrl.history.length.toString(), label: 'Calibrations'),
-        Container(height: 40, width: 1, color: AppColors.border),
-        _StatItem(
-            value: calibCtrl.history
-                .where((h) => h.overallResult == 'PASS')
-                .length
-                .toString(),
-            label: 'Passed'),
-        Container(height: 40, width: 1, color: AppColors.border),
-        _StatItem(
-            value: calibCtrl.history
-                .where((h) => h.overallResult == 'FAIL')
-                .length
-                .toString(),
-            label: 'Failed'),
-      ],
-    );
+    return Obx(() => Row(
+          children: [
+            _StatItem(
+                value: calibCtrl.history.length.toString(),
+                label: 'Calibrations'),
+            Container(height: 40, width: 1, color: AppColors.border),
+            _StatItem(
+                value: calibCtrl.history
+                    .where((h) => h.overallResult == 'PASS')
+                    .length
+                    .toString(),
+                label: 'Passed'),
+            Container(height: 40, width: 1, color: AppColors.border),
+            _StatItem(
+                value: calibCtrl.history
+                    .where((h) => h.overallResult == 'FAIL')
+                    .length
+                    .toString(),
+                label: 'Failed'),
+          ],
+        ));
   }
 }
 

@@ -134,62 +134,88 @@ class _DashboardAppBar extends StatelessWidget {
       floating: true,
       backgroundColor: AppColors.surface,
       elevation: 0,
-      title: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.accent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.biotech_rounded,
-                color: Colors.white, size: 22),
+      titleSpacing: 0,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.accent,
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(width: 12),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Caliborty',
-                style: TextStyle(
-                  fontFamily: 'Syne',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              Text(
-                'Engineering Portal',
-                style: TextStyle(
-                  fontFamily: 'DMSans',
-                  fontSize: 11,
-                  color: AppColors.accent,
-                ),
-              ),
-            ],
+          child:
+              const Icon(Icons.biotech_rounded, color: Colors.white, size: 22),
+        ),
+      ),
+      title: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Caliborty',
+            style: TextStyle(
+              fontFamily: 'Syne',
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          Text(
+            'Engineering Portal',
+            style: TextStyle(
+              fontFamily: 'DMSans',
+              fontSize: 11,
+              color: AppColors.accent,
+            ),
           ),
         ],
       ),
       actions: [
-        Obx(() => CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.surfaceVariant,
-              backgroundImage: auth.appUser.value?.photoUrl != null
-                  ? NetworkImage(auth.appUser.value!.photoUrl!)
-                  : null,
-              child: auth.appUser.value?.photoUrl == null
-                  ? Text(
-                      auth.appUser.value?.fullName
-                              .substring(0, 1)
-                              .toUpperCase() ??
-                          'U',
+        Obx(() => Row(
+              children: [
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      auth.appUser.value?.fullName ?? 'Engineer',
                       style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.accent,
+                        fontFamily: 'DMSans',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: AppColors.textPrimary,
                       ),
-                    )
-                  : null,
+                    ),
+                    Text(
+                      auth.appUser.value?.role ?? 'engineer',
+                      style: const TextStyle(
+                        fontFamily: 'DMSans',
+                        fontSize: 10,
+                        color: AppColors.textHint,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppColors.surfaceVariant,
+                  backgroundImage: auth.appUser.value?.photoUrl != null
+                      ? NetworkImage(auth.appUser.value!.photoUrl!)
+                      : null,
+                  child: auth.appUser.value?.photoUrl == null
+                      ? Text(
+                          (auth.appUser.value?.fullName.isNotEmpty ?? false)
+                              ? auth.appUser.value!.fullName[0].toUpperCase()
+                              : 'U',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.accent,
+                          ),
+                        )
+                      : null,
+                ),
+              ],
             )),
         const SizedBox(width: 16),
       ],

@@ -285,7 +285,8 @@ class CalibrationSession {
           .toList(),
       notes: d['notes'] ?? '',
       overallResult: d['overallResult'] as String?,
-      testDate: d['testDate'] != null ? (d['testDate'] as dynamic).toDate() : null,
+      testDate:
+          d['testDate'] != null ? (d['testDate'] as Timestamp).toDate() : null,
       certificateNumber: d['certificateNumber'] as String?,
       qualitativeResult: d['qualitativeResult'] as String?,
       quantitativeResult: d['quantitativeResult'] as String?,

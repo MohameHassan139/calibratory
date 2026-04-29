@@ -10,6 +10,7 @@ import 'presentation/controllers/calibration_controller.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 import 'presentation/screens/onboarding/onboarding_screen.dart';
 import 'presentation/screens/auth/auth_screens.dart';
+import 'presentation/screens/auth/verify_email_screen.dart';
 import 'presentation/screens/home/home_screen.dart';
 import 'presentation/screens/calibration/calibration_screens.dart';
 import 'presentation/screens/calibration/nibp_screen.dart';
@@ -54,6 +55,8 @@ class CalibOrtyApp extends StatelessWidget {
         GetPage(
             name: AppRoutes.forgotPassword,
             page: () => const ForgotPasswordScreen()),
+        GetPage(
+            name: AppRoutes.verifyEmail, page: () => const VerifyEmailScreen()),
         GetPage(name: AppRoutes.home, page: () => const HomeScreen()),
 
         // Calibration flow

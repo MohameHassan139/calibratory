@@ -31,6 +31,8 @@ class _SplashScreenState extends State<SplashScreen> {
       Get.offAllNamed(AppRoutes.onboarding);
     } else if (authCtrl.firebaseUser.value == null) {
       Get.offAllNamed(AppRoutes.login);
+    } else if (!authCtrl.firebaseUser.value!.emailVerified) {
+      Get.offAllNamed(AppRoutes.verifyEmail);
     } else {
       Get.offAllNamed(AppRoutes.home);
     }
