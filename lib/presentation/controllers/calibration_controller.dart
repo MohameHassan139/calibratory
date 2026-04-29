@@ -3,13 +3,16 @@ import 'dart:io';
 import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../data/models/models.dart';
 import '../../core/constants/app_constants.dart';
 import 'auth_controller.dart';
 import '../services/certificate_service.dart';
+import '../services/firebase_service.dart';
 
 class CalibrationController extends GetxController {
   final AuthController _authCtrl = Get.find();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   final Rx<CalibrationSession?> session = Rx<CalibrationSession?>(null);
   final RxBool isLoading = false.obs;
@@ -212,6 +215,7 @@ class CalibrationController extends GetxController {
       s.certificateNumber = _nextCertNumber();
       s.hospitalName = s.customerName;
       s.status = 'completed';
+      s.id = s.id ?? _firestore.collection('calibrations').doc().id;
 
       final String qualResult = _computeQualResult();
       final String quantResult = _computeQuantResult();
@@ -234,6 +238,19 @@ class CalibrationController extends GetxController {
 
       // Add to local history
       history.insert(0, s);
+
+      Get.snackbar('Uploading', 'Saving to Firebase…',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2));
+
+      // Upload all data to Firebase (certificate kept locally)
+      await FirebaseService.uploadCalibrationSession(s);
+      await FirebaseService.saveEngineerData(s.engineerId, s);
+      await FirebaseService.saveClientData(s, clientEmail);
+      await FirebaseService.saveQualitativeResults(s);
+      await FirebaseService.saveQuantitativeResults(s);
+      await FirebaseService.saveNotes(s);
+      await FirebaseService.saveFinalResults(s);
 
       Get.snackbar('Done', 'Certificate ready ✓',
           snackPosition: SnackPosition.BOTTOM,
