@@ -1,6 +1,7 @@
 // lib/presentation/controllers/auth_controller.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../data/models/models.dart';
 import '../../core/constants/app_constants.dart';
@@ -13,6 +14,9 @@ class AuthController extends GetxController {
   final Rx<AppUser?> appUser = Rx<AppUser?>(null);
   final RxBool isLoading = false.obs;
 
+  /// Set to true by SplashScreen once it's ready to hand off navigation.
+  bool splashComplete = false;
+
   @override
   void onInit() {
     super.onInit();
@@ -21,6 +25,9 @@ class AuthController extends GetxController {
   }
 
   void _handleAuthChange(User? user) {
+    // Don't navigate while splash is still showing
+    if (!splashComplete) return;
+
     if (user != null) {
       if (!user.emailVerified) {
         Get.offAllNamed(AppRoutes.verifyEmail);
@@ -154,13 +161,16 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> forgotPassword(String email) async {
+  Future<void> forgotPassword(String email, {VoidCallback? onSuccess}) async {
     isLoading.value = true;
     try {
       await _auth.sendPasswordResetEmail(email: email);
-      Get.snackbar('Email Sent', 'Check your inbox for password reset instructions.',
-          snackPosition: SnackPosition.BOTTOM);
-      Get.back();
+      Get.snackbar(
+        'Email Sent',
+        'Check your inbox for password reset instructions.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      onSuccess?.call();
     } on FirebaseAuthException catch (e) {
       Get.snackbar('Error', _authError(e.code),
           snackPosition: SnackPosition.BOTTOM);

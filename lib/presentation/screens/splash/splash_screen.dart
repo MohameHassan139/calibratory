@@ -27,6 +27,9 @@ class _SplashScreenState extends State<SplashScreen> {
     final onboardingDone = prefs.getBool('onboarding_done') ?? false;
     final authCtrl = Get.find<AuthController>();
 
+    // Allow AuthController to navigate from this point on
+    authCtrl.splashComplete = true;
+
     if (!onboardingDone) {
       Get.offAllNamed(AppRoutes.onboarding);
     } else if (authCtrl.firebaseUser.value == null) {

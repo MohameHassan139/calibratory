@@ -1,3 +1,4 @@
+
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:flutter/material.dart';
@@ -31,9 +32,6 @@ void main() async {
     anonKey: 'sb_publishable_hu9LmF5-RVYXwY9vuu9mRA_vuninfgG',
   );
 
-  Get.put(AuthController(), permanent: true);
-  Get.put(CalibrationController(), permanent: true);
-
   runApp(const CalibOrtyApp());
 }
 
@@ -46,6 +44,10 @@ class CalibOrtyApp extends StatelessWidget {
       title: 'Caliborty',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      initialBinding: BindingsBuilder(() {
+        Get.put(AuthController(), permanent: true);
+        Get.put(CalibrationController(), permanent: true);
+      }),
       initialRoute: AppRoutes.splash,
       getPages: [
         GetPage(name: AppRoutes.splash, page: () => const SplashScreen()),
