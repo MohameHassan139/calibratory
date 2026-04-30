@@ -1,9 +1,11 @@
 // lib/presentation/controllers/calibration_controller.dart
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color;
 import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/models.dart';
 import '../../core/constants/app_constants.dart';
 import 'auth_controller.dart';
@@ -18,6 +20,19 @@ class CalibrationController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxInt currentStep = 0.obs;
   final RxList<CalibrationSession> history = <CalibrationSession>[].obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    // React every time appUser is set (login / re-auth).
+    // _loadUserData in AuthController sets appUser.value after the async
+    // Firestore fetch, so by the time this fires the uid is available.
+    ever(_authCtrl.appUser, (user) {
+      if (user != null) loadHistory();
+    });
+    // If the user is already loaded (hot-restart / controller re-creation)
+    if (_authCtrl.appUser.value != null) loadHistory();
+  }
 
   void startNewSession() {
     final user = _authCtrl.appUser.value;
@@ -252,6 +267,41 @@ class CalibrationController extends GetxController {
       await FirebaseService.saveNotes(s);
       await FirebaseService.saveFinalResults(s);
 
+      // Upload certificate .docx to Supabase storage and save URL to Firebase
+      try {
+        Get.snackbar('Uploading', 'Saving certificate to cloud…',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 2));
+
+        final certFile = File(certPath);
+        final fileName = certPath.split('/').last;
+        final storagePath = '${s.engineerId}/$fileName';
+
+        await Supabase.instance.client.storage
+            .from('calibration-certificates')
+            .upload(storagePath, certFile,
+                fileOptions: const FileOptions(upsert: true));
+
+        // Get public URL and persist it on the session + Firestore
+        final publicUrl = Supabase.instance.client.storage
+            .from('calibration-certificates')
+            .getPublicUrl(storagePath);
+
+        s.certificateUrl = publicUrl;
+        s.supabasePath = storagePath;
+
+        // Patch the Firestore document with the certificate URL
+        await _firestore.collection('calibrations').doc(s.id).update({
+          'certificateUrl': publicUrl,
+          'supabasePath': storagePath,
+        });
+
+        print('☁️ Certificate uploaded to Supabase: $storagePath');
+      } catch (uploadErr) {
+        // Non-fatal: log but don't block the user
+        print('⚠️ Supabase upload failed: $uploadErr');
+      }
+
       Get.snackbar('Done', 'Certificate ready ✓',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: const Color(0xFF22C55E),
@@ -283,5 +333,30 @@ class CalibrationController extends GetxController {
     }
   }
 
-  Future<void> loadHistory() async {}
+  Future<void> loadHistory() async {
+    try {
+      isLoading.value = true;
+      final user = _authCtrl.appUser.value;
+      if (user == null) {
+        debugPrint('⚠️ loadHistory: appUser is null, skipping');
+        return;
+      }
+
+      debugPrint('🔄 loadHistory: fetching for uid=${user.uid}');
+      final calibrations =
+          await FirebaseService.fetchEngineerCalibrations(user.uid);
+      history.value = calibrations;
+      debugPrint('✅ loadHistory: loaded ${calibrations.length} records');
+    } catch (e) {
+      debugPrint('❌ loadHistory error: $e');
+      Get.snackbar(
+        'History Error',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 6),
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
 }

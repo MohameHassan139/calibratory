@@ -277,8 +277,22 @@ class FirebaseService {
       return snapshot.docs
           .map((doc) => CalibrationSession.fromFirestore(doc))
           .toList();
+    } on FirebaseException catch (e) {
+      // Index not yet built — fall back to unordered query and sort in Dart
+      if (e.code == 'failed-precondition' || e.code == 'unavailable') {
+        final snapshot = await _firestore
+            .collection('calibrations')
+            .where('engineerId', isEqualTo: engineerId)
+            .get();
+
+        final list = snapshot.docs
+            .map((doc) => CalibrationSession.fromFirestore(doc))
+            .toList();
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return list;
+      }
+      rethrow;
     } catch (e) {
-      print('❌ Fetch calibrations error: $e');
       rethrow;
     }
   }

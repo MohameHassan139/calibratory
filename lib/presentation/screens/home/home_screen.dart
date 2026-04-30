@@ -10,6 +10,7 @@ import '../../widgets/home/stat_card.dart';
 import '../../widgets/home/action_card.dart';
 import '../../widgets/home/recent_session_card.dart';
 import '../history/history_screen.dart';
+import '../history/calibration_detail_screen.dart';
 import '../price/price_offer_screen.dart';
 import '../profile/profile_screen.dart';
 import '../devices/devices_management_screen.dart';
@@ -343,7 +344,7 @@ class _QuickActions extends StatelessWidget {
           icon: Icons.history_edu_outlined,
           title: 'Calibration History',
           subtitle: 'View all past calibration sessions and certificates.',
-          onTap: () {},
+          onTap: () => Get.toNamed(AppRoutes.history),
         ).animate(delay: 300.ms).fadeIn().slideX(begin: -0.05, end: 0),
       ],
     );
@@ -516,9 +517,15 @@ class _RecentSessions extends StatelessWidget {
       }
       return Column(
         children: recent
-            .map((s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: RecentSessionCard(session: s),
+            .map((s) => GestureDetector(
+                  onTap: () => Get.to(
+                    () => CalibrationDetailScreen(session: s),
+                    transition: Transition.rightToLeft,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: RecentSessionCard(session: s),
+                  ),
                 ))
             .toList(),
       );

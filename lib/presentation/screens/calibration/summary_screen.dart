@@ -5,6 +5,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../controllers/calibration_controller.dart';
 import '../../widgets/auth/custom_text_field.dart';
 import '../../widgets/calibration/summary_row.dart';
+import '../history/calibration_detail_screen.dart';
 
 class CalibrationSummaryScreen extends StatefulWidget {
   const CalibrationSummaryScreen({super.key});
@@ -118,56 +119,63 @@ class _CompletedView extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Certificate Ready')),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  passed ? Icons.verified_rounded : Icons.cancel_rounded,
+                  size: 50,
+                  color: color,
+                ),
               ),
-              child: Icon(
-                passed ? Icons.verified_rounded : Icons.cancel_rounded,
-                size: 50,
-                color: color,
+              const SizedBox(height: 24),
+              Text(
+                passed ? 'PASSED' : 'FAILED',
+                style: TextStyle(
+                  fontFamily: 'Syne',
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              passed ? 'PASSED' : 'FAILED',
-              style: TextStyle(
-                fontFamily: 'Syne',
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: color,
+              const SizedBox(height: 8),
+              const Text(
+                'Calibration complete. Certificate generated.',
+                style: TextStyle(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Calibration complete. Certificate generated.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 32),
-            if (session.certificateUrl != null)
-              ElevatedButton.icon(
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('Download Certificate'),
-                onPressed: () {},
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: const Text('View Full Details'),
+                  onPressed: () => Get.to(
+                    () => CalibrationDetailScreen(session: session),
+                    transition: Transition.rightToLeft,
+                  ),
+                ),
               ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.share_rounded),
-              label: const Text('Share Certificate'),
-              onPressed: () {},
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => Get.offAllNamed(AppRoutes.home),
-              child: const Text('Back to Dashboard'),
-            ),
-          ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.home_outlined),
+                  label: const Text('Back to Dashboard'),
+                  onPressed: () => Get.offAllNamed(AppRoutes.home),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
