@@ -11,6 +11,7 @@ import '../../core/constants/app_constants.dart';
 import 'auth_controller.dart';
 import '../services/certificate_service.dart';
 import '../services/firebase_service.dart';
+import '../services/email_service.dart';
 
 class CalibrationController extends GetxController {
   final AuthController _authCtrl = Get.find();
@@ -66,6 +67,7 @@ class CalibrationController extends GetxController {
     required String manufacturer,
     required String serialNumber,
     required String model,
+    required String deviceType,
   }) {
     session.update((s) {
       s!.customerName = customerName;
@@ -76,6 +78,7 @@ class CalibrationController extends GetxController {
       s.manufacturer = manufacturer;
       s.serialNumber = serialNumber;
       s.model = model;
+      s.deviceType = deviceType;
     });
   }
 
@@ -295,6 +298,27 @@ class CalibrationController extends GetxController {
           'certificateUrl': publicUrl,
           'supabasePath': storagePath,
         });
+
+        // Send calibration report email if client email was provided
+        if (clientEmail != null && clientEmail.isNotEmpty) {
+          final sent = await EmailService.sendCertificateEmail(
+            toEmail: clientEmail,
+            clientName: s.customerName,
+            engineerName: s.engineerName,
+            serialNumber: s.serialNumber,
+            model: s.model,
+            passed: finalResult == 'PASS',
+            certificateUrl: publicUrl,
+          );
+          if (sent) {
+            Get.snackbar(
+                'Email Sent', 'Calibration report sent to $clientEmail',
+                snackPosition: SnackPosition.BOTTOM,
+                backgroundColor: const Color(0xFF1565C0),
+                colorText: const Color(0xFFFFFFFF),
+                duration: const Duration(seconds: 3));
+          }
+        }
 
         print('☁️ Certificate uploaded to Supabase: $storagePath');
       } catch (uploadErr) {

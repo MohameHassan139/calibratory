@@ -146,6 +146,9 @@ class CalibrationSession {
   String? qualitativeResult;
   String? quantitativeResult;
 
+  // Device type (from MonitorConstants.deviceTypes)
+  String deviceType;
+
   // Result
   String? overallResult; // 'PASS' | 'FAIL'
 
@@ -168,6 +171,7 @@ class CalibrationSession {
     required this.manufacturer,
     required this.serialNumber,
     required this.model,
+    this.deviceType = '',
     this.qualitativeResults = const {},
     this.ecgRepresentation = const {},
     this.hrRows = const [],
@@ -223,6 +227,7 @@ class CalibrationSession {
         'manufacturer': manufacturer,
         'serialNumber': serialNumber,
         'model': model,
+        'deviceType': deviceType,
         'qualitativeResults':
             qualitativeResults.map((k, v) => MapEntry(k, v.code)),
         'ecgRepresentation':
@@ -249,6 +254,28 @@ class CalibrationSession {
   factory CalibrationSession.fromFirestore(
       DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
+
+    // Infer deviceType for old records that predate the deviceType field
+    String resolvedDeviceType = d['deviceType'] ?? '';
+    if (resolvedDeviceType.isEmpty) {
+      final nibpRows = d['nibpRows'] as List? ?? [];
+      final hrRows = d['hrRows'] as List? ?? [];
+      final spo2Rows = d['spo2Rows'] as List? ?? [];
+      final tempRows = d['temp1Rows'] as List? ?? [];
+      final respRows = d['respirationRows'] as List? ?? [];
+      if (nibpRows.isNotEmpty) {
+        resolvedDeviceType = 'NIBP Monitors';
+      } else if (hrRows.isNotEmpty && spo2Rows.isNotEmpty) {
+        resolvedDeviceType = 'ECG Machines';
+      } else if (spo2Rows.isNotEmpty) {
+        resolvedDeviceType = 'Pulse Oximeters';
+      } else if (tempRows.isNotEmpty) {
+        resolvedDeviceType = 'Infusion Pumps';
+      } else if (respRows.isNotEmpty) {
+        resolvedDeviceType = 'Ventilators';
+      }
+    }
+
     return CalibrationSession(
       id: doc.id,
       engineerId: d['engineerId'] ?? '',
@@ -261,6 +288,7 @@ class CalibrationSession {
       manufacturer: d['manufacturer'] ?? '',
       serialNumber: d['serialNumber'] ?? '',
       model: d['model'] ?? '',
+      deviceType: resolvedDeviceType,
       qualitativeResults: (d['qualitativeResults'] as Map<String, dynamic>? ?? {})
           .map((k, v) => MapEntry(k, ItemStatusExt.fromCode(v as String))),
       ecgRepresentation: (d['ecgRepresentation'] as Map<String, dynamic>? ?? {})

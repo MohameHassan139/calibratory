@@ -19,6 +19,7 @@ class AppRoutes {
   static const String priceOffer = '/price-offer';
   static const String history = '/history';
   static const String profile = '/profile';
+  static const String calibrationStats = '/calibration-stats';
 }
 
 // lib/core/constants/app_strings.dart

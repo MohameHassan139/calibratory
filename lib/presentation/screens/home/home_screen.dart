@@ -14,6 +14,7 @@ import '../history/calibration_detail_screen.dart';
 import '../price/price_offer_screen.dart';
 import '../profile/profile_screen.dart';
 import '../devices/devices_management_screen.dart';
+import '../stats/calibration_stats_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -340,13 +341,219 @@ class _QuickActions extends StatelessWidget {
             .fadeIn()
             .slideX(begin: -0.05, end: 0),
         const SizedBox(height: 12),
-        ActionCard(
-          icon: Icons.history_edu_outlined,
-          title: 'Calibration History',
-          subtitle: 'View all past calibration sessions and certificates.',
-          onTap: () => Get.toNamed(AppRoutes.history),
-        ).animate(delay: 300.ms).fadeIn().slideX(begin: -0.05, end: 0),
+        _CalibrationStatsCard(calibCtrl: calibCtrl)
+            .animate(delay: 300.ms)
+            .fadeIn()
+            .slideX(begin: -0.05, end: 0),
       ],
+    );
+  }
+}
+
+// ── Calibration Stats Card ────────────────────────────────────────────────────
+
+class _CalibrationStatsCard extends StatelessWidget {
+  final CalibrationController calibCtrl;
+  const _CalibrationStatsCard({required this.calibCtrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final history = calibCtrl.history;
+      final total = history.length;
+      final passed = history.where((h) => h.overallResult == 'PASS').length;
+      final failed = history.where((h) => h.overallResult == 'FAIL').length;
+      final passRate = total == 0 ? 0.0 : passed / total;
+
+      // This month count
+      final now = DateTime.now();
+      final thisMonthStart = DateTime(now.year, now.month, 1);
+      final thisMonth =
+          history.where((h) => h.createdAt.isAfter(thisMonthStart)).length;
+
+      return GestureDetector(
+        onTap: () => Get.to(
+          () => const CalibrationStatsScreen(),
+          transition: Transition.rightToLeft,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.bar_chart_rounded,
+                        color: AppColors.accent, size: 26),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Calibration Statistics',
+                                style: TextStyle(
+                                  fontFamily: 'Syne',
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.chevron_right_rounded,
+                                color: AppColors.textHint, size: 22),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$thisMonth calibration${thisMonth == 1 ? '' : 's'} this month',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Mini stats row
+              Row(
+                children: [
+                  _MiniStat(
+                    label: 'Total',
+                    value: '$total',
+                    color: AppColors.accent,
+                  ),
+                  const SizedBox(width: 8),
+                  _MiniStat(
+                    label: 'Passed',
+                    value: '$passed',
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: 8),
+                  _MiniStat(
+                    label: 'Failed',
+                    value: '$failed',
+                    color: AppColors.error,
+                  ),
+                  const SizedBox(width: 8),
+                  _MiniStat(
+                    label: 'Rate',
+                    value: '${(passRate * 100).toStringAsFixed(0)}%',
+                    color: const Color(0xFF7C3AED),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Pass rate bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: passRate,
+                  minHeight: 6,
+                  backgroundColor: AppColors.error.withValues(alpha: 0.15),
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(AppColors.success),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'TAP TO VIEW FULL STATISTICS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHint,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    '14 DEVICE TYPES',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.accent.withValues(alpha: 0.7),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  const _MiniStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontFamily: 'Syne',
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'DMSans',
+                fontSize: 9,
+                color: AppColors.textHint,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

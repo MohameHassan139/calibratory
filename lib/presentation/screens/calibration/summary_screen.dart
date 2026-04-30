@@ -97,7 +97,10 @@ class _CalibrationSummaryScreenState extends State<CalibrationSummaryScreen> {
                       icon: const Icon(Icons.verified_outlined),
                       label: const Text('Complete & Generate Certificate'),
                       onPressed: () => _ctrl.completeCalibration(
-                          notes: _notesCtrl.text.trim()),
+                          notes: _notesCtrl.text.trim(),
+                          clientEmail: _emailCtrl.text.trim().isEmpty
+                              ? null
+                              : _emailCtrl.text.trim()),
                     ),
                   )),
           ],

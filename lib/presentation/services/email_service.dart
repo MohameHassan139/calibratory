@@ -6,7 +6,7 @@ class EmailService {
   static const _serviceId = 'service_64t2ewn';
   static const _userId = 'AZHS7uGhXsLQ0J5WK';
   static const _priceOfferTemplateId = 'template_i8gmiim';
-  static const _certificateTemplateId = 'YOUR_CERTIFICATE_TEMPLATE_ID';
+  static const _certificateTemplateId = 'template_6s0lw38';
 
   static Future<bool> sendPriceOfferEmail({
     required String toEmail,

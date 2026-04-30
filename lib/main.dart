@@ -19,6 +19,7 @@ import 'presentation/screens/calibration/temperature_screen.dart';
 import 'presentation/screens/price/price_offer_screen.dart';
 import 'presentation/screens/history/history_screen.dart';
 import 'presentation/screens/profile/profile_screen.dart';
+import 'presentation/screens/stats/calibration_stats_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -139,6 +140,9 @@ class CalibOrtyApp extends StatelessWidget {
             name: AppRoutes.priceOffer, page: () => const PriceOfferScreen()),
         GetPage(name: AppRoutes.history, page: () => const HistoryScreen()),
         GetPage(name: AppRoutes.profile, page: () => const ProfileScreen()),
+        GetPage(
+            name: AppRoutes.calibrationStats,
+            page: () => const CalibrationStatsScreen()),
       ],
     );
   }

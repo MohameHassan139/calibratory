@@ -31,6 +31,7 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
   final _visitTimeCtrl = TextEditingController();
   DateTime _orderDate = DateTime.now();
   DateTime _visitDate = DateTime.now();
+  String? _deviceType;
   final _formKey = GlobalKey<FormState>();
 
   Future<void> _pickDate(bool isOrder) async {
@@ -116,6 +117,30 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
                 title: 'Monitor Data',
                 icon: Icons.monitor_heart_outlined,
                 children: [
+                  // Device Type dropdown
+                  DropdownButtonFormField<String>(
+                    value: _deviceType,
+                    decoration: InputDecoration(
+                      labelText: 'Device Type',
+                      hintText: 'Select device type',
+                      prefixIcon: const Icon(Icons.devices_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                    ),
+                    items: MonitorConstants.deviceTypes
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _deviceType = v),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
                   CustomTextField(
                     label: 'Department',
                     hint: 'e.g., ICU, Emergency',
@@ -167,6 +192,7 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
                         manufacturer: _mfrCtrl.text.trim(),
                         serialNumber: _serialCtrl.text.trim(),
                         model: _modelCtrl.text.trim(),
+                        deviceType: _deviceType ?? '',
                       );
                       Get.toNamed(AppRoutes.calibrationQualitative);
                     }
