@@ -368,6 +368,26 @@ class AppUser {
       createdAt: (d['createdAt'] as Timestamp).toDate(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'uid': uid,
+        'fullName': fullName,
+        'email': email,
+        'phone': phone,
+        'role': role,
+        'photoUrl': photoUrl,
+        'createdAt': createdAt.millisecondsSinceEpoch,
+      };
+
+  factory AppUser.fromJson(Map<String, dynamic> d) => AppUser(
+        uid: d['uid'] ?? '',
+        fullName: d['fullName'] ?? '',
+        email: d['email'] ?? '',
+        phone: d['phone'] ?? '',
+        role: d['role'] ?? 'engineer',
+        photoUrl: d['photoUrl'],
+        createdAt: DateTime.fromMillisecondsSinceEpoch(d['createdAt'] ?? 0),
+      );
 }
 
 // Price offer model

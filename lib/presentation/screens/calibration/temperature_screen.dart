@@ -21,31 +21,35 @@ class _TemperatureScreenState extends State<TemperatureScreen> {
   late List<TextEditingController> temp1SetCtrl;
   late List<List<TextEditingController>> temp1ReadCtrl;
   late List<bool> temp1Errors;
+  late List<bool> temp1Selected;
 
   // Module 2
   late List<MeasurementRow> temp2Rows;
   late List<TextEditingController> temp2SetCtrl;
   late List<List<TextEditingController>> temp2ReadCtrl;
   late List<bool> temp2Errors;
+  late List<bool> temp2Selected;
 
   @override
   void initState() {
     super.initState();
-    final settings = MonitorConstants.tempSettings;
+    const settings = MonitorConstants.tempSettings;
 
     temp1Rows = settings.map((s) => MeasurementRow(settingValue: s)).toList();
     temp1SetCtrl = temp1Rows
         .map((r) => TextEditingController(text: r.settingValue.toStringAsFixed(0)))
         .toList();
     temp1ReadCtrl = List.generate(temp1Rows.length, (_) => List.generate(5, (_) => TextEditingController()));
-    temp1Errors = List.filled(temp1Rows.length, false);
+    temp1Errors = List.filled(temp1Rows.length, false, growable: true);
+    temp1Selected = List.filled(temp1Rows.length, false, growable: true);
 
     temp2Rows = settings.map((s) => MeasurementRow(settingValue: s)).toList();
     temp2SetCtrl = temp2Rows
         .map((r) => TextEditingController(text: r.settingValue.toStringAsFixed(0)))
         .toList();
     temp2ReadCtrl = List.generate(temp2Rows.length, (_) => List.generate(5, (_) => TextEditingController()));
-    temp2Errors = List.filled(temp2Rows.length, false);
+    temp2Errors = List.filled(temp2Rows.length, false, growable: true);
+    temp2Selected = List.filled(temp2Rows.length, false, growable: true);
   }
 
   @override
@@ -55,6 +59,30 @@ class _TemperatureScreenState extends State<TemperatureScreen> {
     for (final row in temp1ReadCtrl) { for (final c in row) { c.dispose(); } }
     for (final row in temp2ReadCtrl) { for (final c in row) { c.dispose(); } }
     super.dispose();
+  }
+
+  void _deleteSelected(bool isModule1) {
+    setState(() {
+      final selected = isModule1 ? temp1Selected : temp2Selected;
+      final rows = isModule1 ? temp1Rows : temp2Rows;
+      final setCtrl = isModule1 ? temp1SetCtrl : temp2SetCtrl;
+      final readCtrl = isModule1 ? temp1ReadCtrl : temp2ReadCtrl;
+      final errors = isModule1 ? temp1Errors : temp2Errors;
+
+      for (int i = selected.length - 1; i >= 0; i--) {
+        if (selected[i]) {
+          setCtrl[i].dispose();
+          for (final c in readCtrl[i]) {
+            c.dispose();
+          }
+          rows.removeAt(i);
+          setCtrl.removeAt(i);
+          readCtrl.removeAt(i);
+          errors.removeAt(i);
+          selected.removeAt(i);
+        }
+      }
+    });
   }
 
   void _onChanged(int i, bool isModule1) {
@@ -136,6 +164,7 @@ class _TemperatureScreenState extends State<TemperatureScreen> {
     required List<TextEditingController> setCtrl,
     required List<List<TextEditingController>> readCtrl,
     required List<bool> errors,
+    required List<bool> selected,
     required bool isModule1,
   }) {
     return Column(
@@ -154,6 +183,20 @@ class _TemperatureScreenState extends State<TemperatureScreen> {
             ),
           ),
         ),
+        // Delete selected button
+        if (selected.any((s) => s))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: TextButton.icon(
+              onPressed: () => _deleteSelected(isModule1),
+              icon: const Icon(Icons.delete_outline,
+                  color: AppColors.error, size: 18),
+              label: Text(
+                'Remove selected (${selected.where((s) => s).length})',
+                style: const TextStyle(color: AppColors.error),
+              ),
+            ),
+          ),
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Container(
@@ -171,17 +214,36 @@ class _TemperatureScreenState extends State<TemperatureScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                     color: AppColors.primary,
-                    child: const Row(
+                    child: Row(
                       children: [
-                        TableHeaderCell('Set\n(°C)', colSetting),
-                        TableHeaderCell('Read 1', colRead),
-                        TableHeaderCell('Read 2', colRead),
-                        TableHeaderCell('Read 3', colRead),
-                        TableHeaderCell('Read 4', colRead),
-                        TableHeaderCell('Read 5', colRead),
-                        TableHeaderCell('Avg', colAvg),
-                        TableHeaderCell('Range', colRange),
-                        TableHeaderCell('Status', colStatus),
+                        SizedBox(
+                          width: colCheckbox,
+                          child: Checkbox(
+                            value:
+                                selected.isNotEmpty && selected.every((s) => s),
+                            tristate: selected.any((s) => s) &&
+                                !selected.every((s) => s),
+                            onChanged: (v) => setState(() {
+                              final val = v ?? false;
+                              for (int i = 0; i < selected.length; i++) {
+                                selected[i] = val;
+                              }
+                            }),
+                            activeColor: AppColors.error,
+                            checkColor: Colors.white,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                        const TableHeaderCell('Set\n(°C)', colSetting),
+                        const TableHeaderCell('Read 1', colRead),
+                        const TableHeaderCell('Read 2', colRead),
+                        const TableHeaderCell('Read 3', colRead),
+                        const TableHeaderCell('Read 4', colRead),
+                        const TableHeaderCell('Read 5', colRead),
+                        const TableHeaderCell('Avg', colAvg),
+                        const TableHeaderCell('Range', colRange),
+                        const TableHeaderCell('Status', colStatus),
                       ],
                     ),
                   ),
@@ -201,6 +263,9 @@ class _TemperatureScreenState extends State<TemperatureScreen> {
                       isLast: i == rows.length - 1,
                       hasError: errors[i],
                       onChanged: () => _onChanged(i, isModule1),
+                      isSelected: selected[i],
+                      onToggleSelect: () =>
+                          setState(() => selected[i] = !selected[i]),
                     );
                   }),
                 ],
@@ -267,6 +332,7 @@ class _TemperatureScreenState extends State<TemperatureScreen> {
                     setCtrl: temp1SetCtrl,
                     readCtrl: temp1ReadCtrl,
                     errors: temp1Errors,
+                    selected: temp1Selected,
                     isModule1: true,
                   ),
                   const SizedBox(height: 24),
@@ -277,6 +343,7 @@ class _TemperatureScreenState extends State<TemperatureScreen> {
                     setCtrl: temp2SetCtrl,
                     readCtrl: temp2ReadCtrl,
                     errors: temp2Errors,
+                    selected: temp2Selected,
                     isModule1: false,
                   ),
                   const SizedBox(height: 8),

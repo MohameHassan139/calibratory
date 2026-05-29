@@ -387,6 +387,7 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
   late List<List<TextEditingController>> controllers;
   late List<TextEditingController> settingControllers;
   late List<bool> rowErrors; // true when 1–2 reads entered
+  late List<bool> selectedRows; // true when row is selected for deletion
 
   @override
   void initState() {
@@ -400,7 +401,8 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
         .map((r) =>
             TextEditingController(text: r.settingValue.toStringAsFixed(0)))
         .toList();
-    rowErrors = List.filled(rows.length, false);
+    rowErrors = List.filled(rows.length, false, growable: true);
+    selectedRows = List.filled(rows.length, false, growable: true);
   }
 
   @override
@@ -414,6 +416,29 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
       }
     }
     super.dispose();
+  }
+
+  void _deleteSelected() {
+    final indices = <int>[];
+    for (int i = 0; i < selectedRows.length; i++) {
+      if (selectedRows[i]) indices.add(i);
+    }
+    if (indices.isEmpty) return;
+
+    setState(() {
+      // Dispose controllers for deleted rows
+      for (final i in indices.reversed) {
+        settingControllers[i].dispose();
+        for (final c in controllers[i]) {
+          c.dispose();
+        }
+        rows.removeAt(i);
+        controllers.removeAt(i);
+        settingControllers.removeAt(i);
+        rowErrors.removeAt(i);
+        selectedRows.removeAt(i);
+      }
+    });
   }
 
   void _computeAndSave() {
@@ -522,6 +547,24 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Delete selected button
+                  if (selectedRows.any((s) => s))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: _deleteSelected,
+                            icon: const Icon(Icons.delete_outline,
+                                color: AppColors.error, size: 18),
+                            label: Text(
+                              'Remove selected (${selectedRows.where((s) => s).length})',
+                              style: const TextStyle(color: AppColors.error),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   // Table
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
@@ -545,15 +588,36 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                               ),
                               child: Row(
                                 children: [
+                                  SizedBox(
+                                    width: colCheckbox,
+                                    child: Checkbox(
+                                      value: selectedRows.isNotEmpty &&
+                                          selectedRows.every((s) => s),
+                                      tristate: selectedRows.any((s) => s) &&
+                                          !selectedRows.every((s) => s),
+                                      onChanged: (v) => setState(() {
+                                        final val = v ?? false;
+                                        for (int i = 0;
+                                            i < selectedRows.length;
+                                            i++) {
+                                          selectedRows[i] = val;
+                                        }
+                                      }),
+                                      activeColor: AppColors.error,
+                                      checkColor: Colors.white,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                  ),
                                   TableHeaderCell('Set\n(${widget.unit})', colSetting),
-                                  TableHeaderCell('Read 1', colRead),
-                                  TableHeaderCell('Read 2', colRead),
-                                  TableHeaderCell('Read 3', colRead),
-                                  TableHeaderCell('Read 4', colRead),
-                                  TableHeaderCell('Read 5', colRead),
-                                  TableHeaderCell('Avg', colAvg),
-                                  TableHeaderCell('Range', colRange),
-                                  TableHeaderCell('Status', colStatus),
+                                  const TableHeaderCell('Read 1', colRead),
+                                  const TableHeaderCell('Read 2', colRead),
+                                  const TableHeaderCell('Read 3', colRead),
+                                  const TableHeaderCell('Read 4', colRead),
+                                  const TableHeaderCell('Read 5', colRead),
+                                  const TableHeaderCell('Avg', colAvg),
+                                  const TableHeaderCell('Range', colRange),
+                                  const TableHeaderCell('Status', colStatus),
                                 ],
                               ),
                             ),
@@ -598,6 +662,9 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                                   }
                                 }),
                                 hasError: rowErrors[i],
+                                isSelected: selectedRows[i],
+                                onToggleSelect: () => setState(
+                                    () => selectedRows[i] = !selectedRows[i]),
                               );
                             }),
                           ],

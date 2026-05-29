@@ -6,6 +6,7 @@ import '../../../data/models/models.dart';
 import '../../controllers/calibration_controller.dart';
 import '../../widgets/calibration/calibration_step_bar.dart';
 
+const double _colCheckbox = 40;
 const double _colLabel = 80;
 const double _colSet = 64;
 const double _colRead = 60;
@@ -34,6 +35,7 @@ class _NIBPScreenState extends State<NIBPScreen> {
   late List<double?> diaAvg;
   late List<bool?> sysSta;
   late List<bool?> diaSta;
+  late List<bool> selectedRows;
 
   @override
   void initState() {
@@ -53,25 +55,63 @@ class _NIBPScreenState extends State<NIBPScreen> {
         rows.length, (_) => List.generate(5, (_) => TextEditingController()));
     diaCtrl = List.generate(
         rows.length, (_) => List.generate(5, (_) => TextEditingController()));
-    sysErrors = List.filled(rows.length, false);
-    diaErrors = List.filled(rows.length, false);
-    sysAvg = List.filled(rows.length, null);
-    diaAvg = List.filled(rows.length, null);
-    sysSta = List.filled(rows.length, null);
-    diaSta = List.filled(rows.length, null);
+    sysErrors = List.filled(rows.length, false, growable: true);
+    diaErrors = List.filled(rows.length, false, growable: true);
+    sysAvg = List.filled(rows.length, null, growable: true);
+    diaAvg = List.filled(rows.length, null, growable: true);
+    sysSta = List.filled(rows.length, null, growable: true);
+    diaSta = List.filled(rows.length, null, growable: true);
+    selectedRows = List.filled(rows.length, false, growable: true);
   }
 
   @override
   void dispose() {
-    for (final c in sysSetCtrl) c.dispose();
-    for (final c in diaSetCtrl) c.dispose();
+    for (final c in sysSetCtrl) {
+      c.dispose();
+    }
+    for (final c in diaSetCtrl) {
+      c.dispose();
+    }
     for (final row in sysCtrl) {
-      for (final c in row) c.dispose();
+      for (final c in row) {
+        c.dispose();
+      }
     }
     for (final row in diaCtrl) {
-      for (final c in row) c.dispose();
+      for (final c in row) {
+        c.dispose();
+      }
     }
     super.dispose();
+  }
+
+  void _deleteSelected() {
+    setState(() {
+      for (int i = selectedRows.length - 1; i >= 0; i--) {
+        if (selectedRows[i]) {
+          sysSetCtrl[i].dispose();
+          diaSetCtrl[i].dispose();
+          for (final c in sysCtrl[i]) {
+            c.dispose();
+          }
+          for (final c in diaCtrl[i]) {
+            c.dispose();
+          }
+          rows.removeAt(i);
+          sysSetCtrl.removeAt(i);
+          diaSetCtrl.removeAt(i);
+          sysCtrl.removeAt(i);
+          diaCtrl.removeAt(i);
+          sysErrors.removeAt(i);
+          diaErrors.removeAt(i);
+          sysAvg.removeAt(i);
+          diaAvg.removeAt(i);
+          sysSta.removeAt(i);
+          diaSta.removeAt(i);
+          selectedRows.removeAt(i);
+        }
+      }
+    });
   }
 
   void _onChanged(int i) {
@@ -272,6 +312,7 @@ class _NIBPScreenState extends State<NIBPScreen> {
     return Container(
       height: 52,
       decoration: BoxDecoration(
+        color: selectedRows[i] ? AppColors.error.withValues(alpha: 0.07) : null,
         border: Border(
           bottom: isLast
               ? BorderSide.none
@@ -283,6 +324,20 @@ class _NIBPScreenState extends State<NIBPScreen> {
       ),
       child: Row(
         children: [
+          // Checkbox — only on systolic row (spans both rows visually via color)
+          if (isSystolic)
+            SizedBox(
+              width: _colCheckbox,
+              child: Checkbox(
+                value: selectedRows[i],
+                onChanged: (_) =>
+                    setState(() => selectedRows[i] = !selectedRows[i]),
+                activeColor: AppColors.error,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            )
+          else
+            SizedBox(width: _colCheckbox),
           // Label
           _cell(
             width: _colLabel,
@@ -487,6 +542,20 @@ class _NIBPScreenState extends State<NIBPScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Delete selected button
+                  if (selectedRows.any((s) => s))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: TextButton.icon(
+                        onPressed: _deleteSelected,
+                        icon: const Icon(Icons.delete_outline,
+                            color: AppColors.error, size: 18),
+                        label: Text(
+                          'Remove selected (${selectedRows.where((s) => s).length})',
+                          style: const TextStyle(color: AppColors.error),
+                        ),
+                      ),
+                    ),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
@@ -507,6 +576,27 @@ class _NIBPScreenState extends State<NIBPScreen> {
                               color: AppColors.primary,
                               child: Row(
                                 children: [
+                                  SizedBox(
+                                    width: _colCheckbox,
+                                    child: Checkbox(
+                                      value: selectedRows.isNotEmpty &&
+                                          selectedRows.every((s) => s),
+                                      tristate: selectedRows.any((s) => s) &&
+                                          !selectedRows.every((s) => s),
+                                      onChanged: (v) => setState(() {
+                                        final val = v ?? false;
+                                        for (int i = 0;
+                                            i < selectedRows.length;
+                                            i++) {
+                                          selectedRows[i] = val;
+                                        }
+                                      }),
+                                      activeColor: AppColors.error,
+                                      checkColor: Colors.white,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                  ),
                                   _headerCell('Type', _colLabel),
                                   _headerCell('Set\n(mmHg)', _colSet),
                                   _headerCell('Read 1', _colRead),

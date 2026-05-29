@@ -1,60 +1,3 @@
-// lib/presentation/services/certificate_service.dart
-//
-// Fills assets/monitor_certificate.docx by replacing {Key} placeholders
-// with real session data, then re-zips and saves the result.
-//
-// ── Qualitative Table Keys (from template image) ─────────────────────────────
-//  Visual Inspection:
-//   {Cha} Chassis/Housing      {Con} Controls/Switches
-//   {Mou} Mount                {Bat} Battery/charger
-//   {Cas} Casters/Brakes       {Ind} Indicator/Displays
-//   {AC}  AC plug              {Lab} Labeling
-//   {Lin} Line Cord            {Ala} Alarms
-//   {Scr} Screen               {Hou} Module Housing
-//   {SPO} SPO2 cable           {Tro} Mounting/Trolley
-//  ECG Representation:
-//   {Atr} Atrial Fibrillation  {Prem} Premature ventricle contraction
-//   {Ven} Ventricle Fibrillation {Paro} Paroxysmal Atrial Tachycardia
-//   {Atrf} Atrial Flutter      {Poly} Polymorphic Ventricular Tachycardia
-//   {Rep} Representation of Standard signals
-//   {ECG} Represent ECG waveforms with different Amplitudes
-//
-// ── Header / Info Keys ────────────────────────────────────────────────────────
-//   {HospitalName}  customer / hospital name
-//   {Manufacturer}  device manufacturer
-//   {Model}         device model
-//   {SerialNo}      serial number
-//   {Department}    department
-//   {VisitDate}     visit date  dd/mm/yyyy
-//   {OrderDate}     order date  dd/mm/yyyy
-//   {EngineerName}  engineer full name
-//   {CertNo}        certificate number
-//   {Final_Qualitative} qualitative result  (PASS / FAIL / N/F)
-//   {Final_Quantitative} quantitative result (PASS / FAIL / N/F)
-//   {Final}             combined result — AND of both (PASS / FAIL / N/F)
-//
-// ── Measurement Table Keys ────────────────────────────────────────────────────
-//  Heart Rate rows (6 rows × 4 cols):
-//   {HR1_Avg} {HR1_Err} {HR1_Unc} {HR1_Sta}  ... {HR6_Sta}
-//  SPO2 rows (5 rows):
-//   {SP1_Avg} {SP1_Err} {SP1_Unc} {SP1_Sta}  ... {SP5_Sta}
-//  NIBP rows (6 pairs × sys+dia, defaults: sys=60,80,100,120,180,240 / dia=30,40,60,80,140,200):
-//   Value-based:  {NIBP_S_Set60} {NIBP_S_Avg60} {NIBP_S_Err60} {NIBP_S_Acc60} {NIBP_S_Sta60} {NIBP_S_Unc60}
-//                 {NIBP_D_Set30} {NIBP_D_Avg30} {NIBP_D_Err30} {NIBP_D_Acc30} {NIBP_D_Sta30} {NIBP_D_Unc30}
-//   Index-based:  {NIBP_S_Set1}  {NIBP_S_Avg1}  {NIBP_S_Err1}  {NIBP_S_Acc1}  {NIBP_S_Sta1}  {NIBP_S_Unc1}
-//                 {NIBP_D_Set1}  {NIBP_D_Avg1}  {NIBP_D_Err1}  {NIBP_D_Acc1}  {NIBP_D_Sta1}  {NIBP_D_Unc1}
-//                 ... rows 1–6
-//   Legacy aliases also populated: {Set_Sys60}, {Set_Dia30}
-//  Respiration rows (4 rows):
-//   {RR1_Avg} {RR1_Err} {RR1_Unc} {RR1_Sta}  ... {RR4_Sta}
-//  Temperature sensor 1 (3 rows: 33, 37, 41 °C):
-//   {Tem_Set33} {Tem_Avg33} {Tem_Err33} {Tem_Acc33} {Tem_Sta33} {Tem_Unc33}
-//   {Tem_Set37} {Tem_Avg37} {Tem_Err37} {Tem_Acc37} {Tem_Sta37} {Tem_Unc37}
-//   {Tem_Set41} {Tem_Avg41} {Tem_Err41} {Tem_Acc41} {Tem_Sta41} {Tem_Unc41}
-//  Temperature sensor 2 (3 rows: 33, 37, 41 °C):
-//   {Tem2_Set33} {Tem2_Avg33} {Tem2_Err33} {Tem2_Acc33} {Tem2_Sta33} {Tem2_Unc33}
-//   {Tem2_Set37} {Tem2_Avg37} {Tem2_Err37} {Tem2_Acc37} {Tem2_Sta37} {Tem2_Unc37}
-//   {Tem2_Set41} {Tem2_Avg41} {Tem2_Err41} {Tem2_Acc41} {Tem2_Sta41} {Tem2_Unc41}
 
 import 'dart:io';
 import 'dart:typed_data';
@@ -174,13 +117,22 @@ class CertificateService {
       final MeasurementRow? row = hr && i < s.hrRows.length ? s.hrRows[i] : null;
       // Use actual setting value from row (user may have changed it)
       final int bpm = row != null ? row.settingValue.toInt() : defaultBpm;
-      if (!hr || row == null) {
+      if (!hr) {
+        // Table not shown — N/A
         map['{Heart_set$defaultBpm}'] = defaultBpm.toString();
         map['{Heart_Ave$defaultBpm}'] = 'N/A';
         map['{Heart_Error$defaultBpm}'] = 'N/A';
         map['{Heart_Acc$defaultBpm}'] = 'N/A';
         map['{Heart_Sta$defaultBpm}'] = 'N/A';
         map['{Heart_unc$defaultBpm}'] = 'N/A';
+      } else if (row == null) {
+        // Row was removed by user — NI
+        map['{Heart_set$defaultBpm}'] = defaultBpm.toString();
+        map['{Heart_Ave$defaultBpm}'] = 'NI';
+        map['{Heart_Error$defaultBpm}'] = 'NI';
+        map['{Heart_Acc$defaultBpm}'] = 'NI';
+        map['{Heart_Sta$defaultBpm}'] = 'NI';
+        map['{Heart_unc$defaultBpm}'] = 'NI';
       } else {
         final double avg = row.computedAverage;
         final double err = (row.settingValue - avg).abs();
@@ -205,13 +157,20 @@ class CertificateService {
       final MeasurementRow? row =
           sp && i < s.spo2Rows.length ? s.spo2Rows[i] : null;
       final int val = row != null ? row.settingValue.toInt() : defaultVal;
-      if (!sp || row == null) {
+      if (!sp) {
         map['{SPO2_Set$defaultVal}'] = defaultVal.toString();
         map['{SPO2_Avg$defaultVal}'] = 'N/A';
         map['{SPO2_Err$defaultVal}'] = 'N/A';
         map['{SPO2_Acc$defaultVal}'] = 'N/A';
         map['{SPO2_Sta$defaultVal}'] = 'N/A';
         map['{SPO2_Unc$defaultVal}'] = 'N/A';
+      } else if (row == null) {
+        map['{SPO2_Set$defaultVal}'] = defaultVal.toString();
+        map['{SPO2_Avg$defaultVal}'] = 'NI';
+        map['{SPO2_Err$defaultVal}'] = 'NI';
+        map['{SPO2_Acc$defaultVal}'] = 'NI';
+        map['{SPO2_Sta$defaultVal}'] = 'NI';
+        map['{SPO2_Unc$defaultVal}'] = 'NI';
       } else {
         final double avg = row.computedAverage;
         final double err = (row.settingValue - avg).abs();
@@ -241,7 +200,7 @@ class CertificateService {
       final int sys = row != null ? row.systolicSetting.toInt() : defSys;
       final int dia = row != null ? row.diastolicSetting.toInt() : defDia;
 
-      if (!nb || row == null) {
+      if (!nb) {
         // Systolic N/A — value-based keys
         map['{Set_Sys$defSys}'] = defSys.toString();
         map['{NIBP_S_Set$defSys}'] = defSys.toString();
@@ -272,6 +231,34 @@ class CertificateService {
         map['{NIBP_D_Acc$rowNum}'] = 'N/A';
         map['{NIBP_D_Sta$rowNum}'] = 'N/A';
         map['{NIBP_D_Unc$rowNum}'] = 'N/A';
+      } else if (row == null) {
+        // Row removed by user — NI
+        map['{Set_Sys$defSys}'] = defSys.toString();
+        map['{NIBP_S_Set$defSys}'] = defSys.toString();
+        map['{NIBP_S_Avg$defSys}'] = 'NI';
+        map['{NIBP_S_Err$defSys}'] = 'NI';
+        map['{NIBP_S_Acc$defSys}'] = 'NI';
+        map['{NIBP_S_Sta$defSys}'] = 'NI';
+        map['{NIBP_S_Unc$defSys}'] = 'NI';
+        map['{NIBP_S_Set$rowNum}'] = defSys.toString();
+        map['{NIBP_S_Avg$rowNum}'] = 'NI';
+        map['{NIBP_S_Err$rowNum}'] = 'NI';
+        map['{NIBP_S_Acc$rowNum}'] = 'NI';
+        map['{NIBP_S_Sta$rowNum}'] = 'NI';
+        map['{NIBP_S_Unc$rowNum}'] = 'NI';
+        map['{Set_Dia$defDia}'] = defDia.toString();
+        map['{NIBP_D_Set$defDia}'] = defDia.toString();
+        map['{NIBP_D_Avg$defDia}'] = 'NI';
+        map['{NIBP_D_Err$defDia}'] = 'NI';
+        map['{NIBP_D_Acc$defDia}'] = 'NI';
+        map['{NIBP_D_Sta$defDia}'] = 'NI';
+        map['{NIBP_D_Unc$defDia}'] = 'NI';
+        map['{NIBP_D_Set$rowNum}'] = defDia.toString();
+        map['{NIBP_D_Avg$rowNum}'] = 'NI';
+        map['{NIBP_D_Err$rowNum}'] = 'NI';
+        map['{NIBP_D_Acc$rowNum}'] = 'NI';
+        map['{NIBP_D_Sta$rowNum}'] = 'NI';
+        map['{NIBP_D_Unc$rowNum}'] = 'NI';
       } else {
         // Systolic
         final sysReads = row.systolicReads;
@@ -339,13 +326,20 @@ class CertificateService {
       final MeasurementRow? row =
           rr && i < s.respirationRows.length ? s.respirationRows[i] : null;
       final int bpm = row != null ? row.settingValue.toInt() : defaultBpm;
-      if (!rr || row == null) {
+      if (!rr) {
         map['{Resp_Set$defaultBpm}'] = defaultBpm.toString();
         map['{Resp_Avg$defaultBpm}'] = 'N/A';
         map['{Resp_Err$defaultBpm}'] = 'N/A';
         map['{Resp_Acc$defaultBpm}'] = 'N/A';
         map['{Resp_Sta$defaultBpm}'] = 'N/A';
         map['{Resp_Unc$defaultBpm}'] = 'N/A';
+      } else if (row == null) {
+        map['{Resp_Set$defaultBpm}'] = defaultBpm.toString();
+        map['{Resp_Avg$defaultBpm}'] = 'NI';
+        map['{Resp_Err$defaultBpm}'] = 'NI';
+        map['{Resp_Acc$defaultBpm}'] = 'NI';
+        map['{Resp_Sta$defaultBpm}'] = 'NI';
+        map['{Resp_Unc$defaultBpm}'] = 'NI';
       } else {
         final double avg = row.computedAverage;
         final double err = (row.settingValue - avg).abs();
@@ -374,13 +368,20 @@ class CertificateService {
       final MeasurementRow? row =
           tm && rowIdx < s.temp1Rows.length ? s.temp1Rows[rowIdx] : null;
       final int val = row != null ? row.settingValue.toInt() : defaultVal;
-      if (!tm || row == null) {
+      if (!tm) {
         map['{Tem_Set$defaultVal}'] = defaultVal.toString();
         map['{Tem_Avg$defaultVal}'] = 'N/A';
         map['{Tem_Err$defaultVal}'] = 'N/A';
         map['{Tem_Acc$defaultVal}'] = 'N/A';
         map['{Tem_Sta$defaultVal}'] = 'N/A';
         map['{Tem_Unc$defaultVal}'] = 'N/A';
+      } else if (row == null) {
+        map['{Tem_Set$defaultVal}'] = defaultVal.toString();
+        map['{Tem_Avg$defaultVal}'] = 'NI';
+        map['{Tem_Err$defaultVal}'] = 'NI';
+        map['{Tem_Acc$defaultVal}'] = 'NI';
+        map['{Tem_Sta$defaultVal}'] = 'NI';
+        map['{Tem_Unc$defaultVal}'] = 'NI';
       } else {
         final double avg = row.computedAverage;
         final double err = (row.settingValue - avg).abs();
@@ -405,13 +406,20 @@ class CertificateService {
       final MeasurementRow? row =
           tm && rowIdx < s.temp2Rows.length ? s.temp2Rows[rowIdx] : null;
       final int val = row != null ? row.settingValue.toInt() : defaultVal;
-      if (!tm || row == null) {
+      if (!tm) {
         map['{Tem2_Set$defaultVal}'] = defaultVal.toString();
         map['{Tem2_Avg$defaultVal}'] = 'N/A';
         map['{Tem2_Err$defaultVal}'] = 'N/A';
         map['{Tem2_Acc$defaultVal}'] = 'N/A';
         map['{Tem2_Sta$defaultVal}'] = 'N/A';
         map['{Tem2_Unc$defaultVal}'] = 'N/A';
+      } else if (row == null) {
+        map['{Tem2_Set$defaultVal}'] = defaultVal.toString();
+        map['{Tem2_Avg$defaultVal}'] = 'NI';
+        map['{Tem2_Err$defaultVal}'] = 'NI';
+        map['{Tem2_Acc$defaultVal}'] = 'NI';
+        map['{Tem2_Sta$defaultVal}'] = 'NI';
+        map['{Tem2_Unc$defaultVal}'] = 'NI';
       } else {
         final double avg = row.computedAverage;
         final double err = (row.settingValue - avg).abs();

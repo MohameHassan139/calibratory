@@ -84,7 +84,8 @@ class MonitorConstants {
   // Compute accepted range for HR: x ± (x*5/100) ± 1
   static List<double> hrAcceptedRange(double x) {
     final tol = (x * 5 / 100) + 1;
-    return [x - tol, x + tol];
+    final tol2 = (x * 5 / 100) - 1;
+    return [x - tol, x + tol2];
   }
 
   // SPO2: x ± (x*2/100)
@@ -145,6 +146,7 @@ class MonitorConstants {
 
   // Device types for price offers
   static const List<String> deviceTypes = [
+    'Patient Monitors',
     'ECG Machines',
     'NIBP Monitors',
     'Pulse Oximeters',

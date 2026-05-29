@@ -1,8 +1,10 @@
 // lib/presentation/controllers/auth_controller.dart
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/models.dart';
 import '../../core/constants/app_constants.dart';
 
@@ -14,14 +16,41 @@ class AuthController extends GetxController {
   final Rx<AppUser?> appUser = Rx<AppUser?>(null);
   final RxBool isLoading = false.obs;
 
+  static const _kUserKey = 'cached_user';
+
   /// Set to true by SplashScreen once it's ready to hand off navigation.
   bool splashComplete = false;
 
   @override
   void onInit() {
     super.onInit();
+    _restoreCachedUser();
     firebaseUser.bindStream(_auth.authStateChanges());
     ever(firebaseUser, _handleAuthChange);
+  }
+
+  // ── Local storage helpers ────────────────────────────────────────────────
+
+  Future<void> _saveUserLocally(AppUser user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kUserKey, jsonEncode(user.toJson()));
+  }
+
+  Future<void> _clearLocalUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kUserKey);
+  }
+
+  void _restoreCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kUserKey);
+    if (raw != null) {
+      try {
+        appUser.value = AppUser.fromJson(jsonDecode(raw));
+      } catch (_) {
+        await prefs.remove(_kUserKey);
+      }
+    }
   }
 
   void _handleAuthChange(User? user) {
@@ -45,20 +74,27 @@ class AuthController extends GetxController {
     try {
       final doc = await _db.collection('users').doc(uid).get();
       if (doc.exists) {
-        appUser.value = AppUser.fromFirestore(doc);
+        final user = AppUser.fromFirestore(doc);
+        appUser.value = user;
+        await _saveUserLocally(user);
       }
     } catch (e) {
       print('❌ Firestore _loadUserData failed: $e');
-      // Build a minimal AppUser from Firebase Auth so the app still works
-      final firebaseUser = _auth.currentUser;
-      if (firebaseUser != null) {
-        appUser.value = AppUser(
-          uid: firebaseUser.uid,
-          fullName: firebaseUser.displayName ?? firebaseUser.email ?? 'Engineer',
-          email: firebaseUser.email ?? '',
-          phone: '',
-          createdAt: DateTime.now(),
-        );
+      // Fall back to cached user if already restored, otherwise build minimal one
+      if (appUser.value == null) {
+        final firebaseUser = _auth.currentUser;
+        if (firebaseUser != null) {
+          final user = AppUser(
+            uid: firebaseUser.uid,
+            fullName:
+                firebaseUser.displayName ?? firebaseUser.email ?? 'Engineer',
+            email: firebaseUser.email ?? '',
+            phone: '',
+            createdAt: DateTime.now(),
+          );
+          appUser.value = user;
+          await _saveUserLocally(user);
+        }
       }
     }
   }
@@ -107,6 +143,7 @@ class AuthController extends GetxController {
         print('❌ Firestore register save failed: $e');
       }
       appUser.value = user;
+      await _saveUserLocally(user);
 
       // Send verification email
       await cred.user?.sendEmailVerification();
@@ -181,6 +218,7 @@ class AuthController extends GetxController {
 
   Future<void> logout() async {
     await _auth.signOut();
+    await _clearLocalUser();
     appUser.value = null;
   }
 
@@ -210,6 +248,7 @@ class AuthController extends GetxController {
             .update(updatedUser.toFirestore());
 
         appUser.value = updatedUser;
+        await _saveUserLocally(updatedUser);
         Get.snackbar('Success', 'Profile updated successfully',
             snackPosition: SnackPosition.BOTTOM);
       }

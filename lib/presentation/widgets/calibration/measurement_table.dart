@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 
 // Fixed column widths
+const double colCheckbox = 40;
 const double colSetting = 64;
 const double colRead = 60;
 const double colAvg = 68;
@@ -9,7 +10,7 @@ const double colRange = 90;
 const double colStatus = 56;
 
 double get tableMinWidth =>
-    colSetting + colRead * 5 + colAvg + colRange + colStatus;
+    colCheckbox + colSetting + colRead * 5 + colAvg + colRange + colStatus;
 
 /// Column header cell — fixed width
 class TableHeaderCell extends StatelessWidget {
@@ -47,6 +48,8 @@ class MeasurementTableRow extends StatelessWidget {
   final bool isLast;
   final bool hasError; // true when 1–2 reads entered (not enough)
   final VoidCallback onChanged;
+  final bool isSelected;
+  final VoidCallback? onToggleSelect;
 
   const MeasurementTableRow({
     super.key,
@@ -59,6 +62,8 @@ class MeasurementTableRow extends StatelessWidget {
     required this.isLast,
     required this.onChanged,
     this.hasError = false,
+    this.isSelected = false,
+    this.onToggleSelect,
   });
 
   Widget _inputCell({
@@ -124,6 +129,7 @@ class MeasurementTableRow extends StatelessWidget {
     return Container(
       height: 52,
       decoration: BoxDecoration(
+        color: isSelected ? AppColors.error.withValues(alpha: 0.07) : null,
         border: Border(
           bottom: isLast
               ? BorderSide.none
@@ -135,10 +141,21 @@ class MeasurementTableRow extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Checkbox for row selection
+          SizedBox(
+            width: colCheckbox,
+            child: Checkbox(
+              value: isSelected,
+              onChanged:
+                  onToggleSelect != null ? (_) => onToggleSelect!() : null,
+              activeColor: AppColors.error,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
           // Setting value — editable
           _inputCell(
             width: colSetting,
-            leftBorder: false,
+            leftBorder: true,
             bg: AppColors.surfaceVariant,
             controller: settingController,
             hintText: settingValue.toStringAsFixed(0),
