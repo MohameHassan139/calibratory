@@ -50,11 +50,11 @@ class AppStrings {
   static const String tempCable = 'TEMP CABLE/S';
 
   // Accepted ranges formulas
-  // HR: x ± (x*5/100) ± 1
-  // SPO2: x ± (x*2/100) ± 0
-  // NIBP: x ± (x*2/100) ± 0
-  // Respiration: x ± (x*2/100) ± 0
-  // Temperature: x ± (x*0.2/100) ± 0
+  // HR: x + x(±5)/100 ∓ 1
+  // SPO2: x + x(±2)/100 ∓ 0
+  // NIBP: Hardcoded values (no equation)
+  // Respiration: x + x(±1)/100 ∓ 0
+  // Temperature: x + x(±0.2)/100 ∓ 0
 }
 
 // lib/core/constants/monitor_data.dart
@@ -72,7 +72,6 @@ class MonitorConstants {
     [100, 60],
     [120, 80],
     [180, 140],
-    [240, 200],
   ];
 
   // Respiration setting values (BPM)
@@ -81,32 +80,51 @@ class MonitorConstants {
   // Temperature setting values (°C)
   static const List<double> tempSettings = [25, 33, 37, 41];
 
-  // Compute accepted range for HR: x ± (x*5/100) ± 1
+  // Compute accepted range for HR: x + x(±5)/100 ∓ 1
   static List<double> hrAcceptedRange(double x) {
-    final tol = (x * 5 / 100) + 1;
-    final tol2 = (x * 5 / 100) - 1;
-    return [x - tol, x + tol2];
+    final tol = (x * 5 / 100) - 1;
+    return [x - tol, x + tol];
   }
 
-  // SPO2: x ± (x*2/100)
+  // SPO2: x + x(±2)/100 ∓ 0
   static List<double> spo2AcceptedRange(double x) {
     final tol = x * 2 / 100;
     return [x - tol, x + tol];
   }
 
-  // NIBP: x ± (x*2/100)
+  // NIBP: Hardcoded values (no equation)
   static List<double> nibpAcceptedRange(double x) {
-    final tol = x * 2 / 100;
-    return [x - tol, x + tol];
+    final int val = x.round();
+    switch (val) {
+      case 30:
+        return [20.15, 39.85];
+      case 40:
+        return [29.8, 49.6];
+      case 60:
+        return [50.3, 69.7];
+      case 80:
+        return [69.6, 89.9];
+      case 100:
+        return [90.5, 109.5];
+      case 120:
+        return [110.6, 129.4];
+      case 140:
+        return [130.7, 149.3];
+      case 180:
+        return [170.9, 189.1];
+      default:
+        final tol = x * 2 / 100;
+        return [x - tol, x + tol];
+    }
   }
 
-  // Respiration: x ± (x*2/100)  [based on ±1% but the sheet shows ±2%]
+  // Respiration: x + x(±1)/100 ∓ 0
   static List<double> respirationAcceptedRange(double x) {
     final tol = x * 1 / 100;
     return [x - tol, x + tol];
   }
 
-  // Temperature: x ± (x*0.2/100)
+  // Temperature: x + x(±0.2)/100 ∓ 0
   static List<double> tempAcceptedRange(double x) {
     final tol = x * 0.2 / 100;
     return [x - tol, x + tol];
