@@ -66,9 +66,30 @@ class CertificateService {
     map['{SerialNo}'] = s.serialNumber;
     map['{Department}'] = s.department;
     map['{VisitDate}'] = _fmtDate(s.visitDate);
+    map['{Visit Date}'] = _fmtDate(s.visitDate);
     map['{OrderDate}'] = _fmtDate(s.orderDate);
+    map['{Order Date}'] = _fmtDate(s.orderDate);
     map['{EngineerName}'] = s.engineerName;
     map['{CertNo}'] = s.certificateNumber ?? '';
+
+    // Testing Device mapping
+    map['{TestDeviceManufacturer}'] = s.testDeviceManufacturer;
+    map['{TestDeviceMfr}'] = s.testDeviceManufacturer;
+    map['{Test Device Manufacturer}'] = s.testDeviceManufacturer;
+    map['{TestDeviceModel}'] = s.testDeviceModel;
+    map['{Test Device Model}'] = s.testDeviceModel;
+    map['{TestDeviceSerialNo}'] = s.testDeviceSerialNumber;
+    map['{TestDeviceSerialNumber}'] = s.testDeviceSerialNumber;
+    map['{Test Device SerialNo}'] = s.testDeviceSerialNumber;
+    map['{Test Device Serial Number}'] = s.testDeviceSerialNumber;
+
+    // Test Info mapping
+    map['{TestType}'] = s.testType;
+    map['{Test Type}'] = s.testType;
+    map['{TestLab}'] = s.testLab;
+    map['{Test Lab}'] = s.testLab;
+    map['{LabName}'] = s.testLab;
+    map['{Lab Name}'] = s.testLab;
 
     // ── Overall results ───────────────────────────────────────────────────────
     map['{Final_Qualitative}'] = s.qualitativeResult ?? 'N/F';
@@ -142,7 +163,8 @@ class CertificateService {
           map['{Heart_set$key}'] = bpm.toString();
           map['{Heart_Ave$key}'] = avg.toStringAsFixed(2);
           map['{Heart_Error$key}'] = err.toStringAsFixed(2);
-          map['{Heart_Acc$key}'] = '${range[0].toStringAsFixed(1)} - ${range[1].toStringAsFixed(1)}';
+          map['{Heart_Acc$key}'] =
+              '${range[0].toStringAsFixed(3)} - ${range[1].toStringAsFixed(3)}';
           map['{Heart_Sta$key}'] = row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
           map['{Heart_unc$key}'] = _typeA(row.reads, decimals: 4);
         }
@@ -180,7 +202,7 @@ class CertificateService {
           map['{SPO2_Avg$key}'] = avg.toStringAsFixed(2);
           map['{SPO2_Err$key}'] = err.toStringAsFixed(2);
           map['{SPO2_Acc$key}'] =
-              '${range[0].toStringAsFixed(1)} - ${range[1].toStringAsFixed(1)}';
+              '${range[0].toStringAsFixed(3)} - ${range[1].toStringAsFixed(3)}';
           map['{SPO2_Sta$key}'] =
               row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
           map['{SPO2_Unc$key}'] = _typeA(row.reads, decimals: 4);
@@ -269,7 +291,8 @@ class CertificateService {
         final sysRange = MonitorConstants.nibpAcceptedRange(row.systolicSetting);
         final sysSta = row.systolicStatus == true ? 'PASS' : row.systolicStatus == false ? 'FAIL' : 'N/A';
         final sysUnc = _typeA(sysReads, decimals: 4);
-        final sysAcc = '${sysRange[0].toStringAsFixed(1)} - ${sysRange[1].toStringAsFixed(1)}';
+        final sysAcc =
+            '${sysRange[0].toStringAsFixed(3)} - ${sysRange[1].toStringAsFixed(3)}';
         // value-based keys
         for (final k in {defSys, sys}) {
           map['{Set_Sys$k}'] = sys.toString();
@@ -297,7 +320,8 @@ class CertificateService {
         final diaRange = MonitorConstants.nibpAcceptedRange(row.diastolicSetting);
         final diaSta = row.diastolicStatus == true ? 'PASS' : row.diastolicStatus == false ? 'FAIL' : 'N/A';
         final diaUnc = _typeA(diaReads, decimals: 4);
-        final diaAcc = '${diaRange[0].toStringAsFixed(1)} - ${diaRange[1].toStringAsFixed(1)}';
+        final diaAcc =
+            '${diaRange[0].toStringAsFixed(3)} - ${diaRange[1].toStringAsFixed(3)}';
         // value-based keys
         for (final k in {defDia, dia}) {
           map['{Set_Dia$k}'] = dia.toString();
@@ -349,7 +373,7 @@ class CertificateService {
           map['{Resp_Avg$key}'] = avg.toStringAsFixed(2);
           map['{Resp_Err$key}'] = err.toStringAsFixed(2);
           map['{Resp_Acc$key}'] =
-              '${range[0].toStringAsFixed(1)} - ${range[1].toStringAsFixed(1)}';
+              '${range[0].toStringAsFixed(3)} - ${range[1].toStringAsFixed(3)}';
           map['{Resp_Sta$key}'] =
               row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
           map['{Resp_Unc$key}'] = _typeA(row.reads, decimals: 4);
@@ -391,7 +415,7 @@ class CertificateService {
           map['{Tem_Avg$key}'] = avg.toStringAsFixed(3);
           map['{Tem_Err$key}'] = err.toStringAsFixed(3);
           map['{Tem_Acc$key}'] =
-              '${range[0].toStringAsFixed(2)} - ${range[1].toStringAsFixed(2)}';
+              '${range[0].toStringAsFixed(3)} - ${range[1].toStringAsFixed(3)}';
           map['{Tem_Sta$key}'] =
               row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
           map['{Tem_Unc$key}'] = _typeA(row.reads, decimals: 4);
@@ -429,7 +453,7 @@ class CertificateService {
           map['{Tem2_Avg$key}'] = avg.toStringAsFixed(3);
           map['{Tem2_Err$key}'] = err.toStringAsFixed(3);
           map['{Tem2_Acc$key}'] =
-              '${range[0].toStringAsFixed(2)} - ${range[1].toStringAsFixed(2)}';
+              '${range[0].toStringAsFixed(3)} - ${range[1].toStringAsFixed(3)}';
           map['{Tem2_Sta$key}'] =
               row.status == true ? 'PASS' : row.status == false ? 'FAIL' : 'N/A';
           map['{Tem2_Unc$key}'] = _typeA(row.reads, decimals: 4);

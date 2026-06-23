@@ -46,20 +46,26 @@ static Future<bool> sendCertificateEmail({
     required String certificateUrl,
   }) async {
     final payload = {
-      'toEmail': toEmail,
-      'clientName': clientName,
-      'engineerName': engineerName,
-      'serialNumber': serialNumber,
-      'model': model,
+      'toEmail': toEmail.trim(),
+      'clientName': clientName.trim(),
+      'engineerName': engineerName.trim(),
+      'serialNumber': serialNumber.trim(),
+      'model': model.trim(),
       'passed': passed,
-      'certificateUrl': certificateUrl,
+      'certificateUrl': certificateUrl.trim(),
     };
+
+    final bodyStr = json.encode(payload);
+    print('📧 Certificate email payload: $bodyStr');
 
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/certificate'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(payload),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: bodyStr,
       );
       print('📧 Certificate email status: ${response.statusCode}');
       print('📧 Certificate email body: ${response.body}');

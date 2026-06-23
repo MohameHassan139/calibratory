@@ -122,6 +122,15 @@ class CalibrationSession {
   String serialNumber;
   String model;
 
+  // Testing Device Data
+  String testDeviceManufacturer;
+  String testDeviceModel;
+  String testDeviceSerialNumber;
+
+  // Custom Test Info
+  String testType;
+  String testLab;
+
   // Qualitative Test - key: item name, value: status
   Map<String, ItemStatus> qualitativeResults;
 
@@ -189,6 +198,11 @@ class CalibrationSession {
     this.overallResult,
     this.certificateUrl,
     this.supabasePath,
+    this.testDeviceManufacturer = '',
+    this.testDeviceModel = '',
+    this.testDeviceSerialNumber = '',
+    this.testType = 'اختبار اداء وظيفي لجهاز شاشة مراقبة المريض',
+    this.testLab = 'معمل معايرة الأجهزة الطبية التابع لوحدة معايرة واستشارات الأجهزة الطبية (يوميك) التابعة لمركز الاستشارات الهندسية بكلية الهندسة جامعة المنيا',
     required this.createdAt,
     this.status = 'draft',
   }) : hospitalName = hospitalName ?? customerName;
@@ -247,6 +261,11 @@ class CalibrationSession {
         'overallResult': overallResult,
         'certificateUrl': certificateUrl,
         'supabasePath': supabasePath,
+        'testDeviceManufacturer': testDeviceManufacturer,
+        'testDeviceModel': testDeviceModel,
+        'testDeviceSerialNumber': testDeviceSerialNumber,
+        'testType': testType,
+        'testLab': testLab,
         'createdAt': Timestamp.fromDate(createdAt),
         'status': status,
       };
@@ -320,6 +339,11 @@ class CalibrationSession {
       quantitativeResult: d['quantitativeResult'] as String?,
       certificateUrl: d['certificateUrl'],
       supabasePath: d['supabasePath'],
+      testDeviceManufacturer: d['testDeviceManufacturer'] ?? '',
+      testDeviceModel: d['testDeviceModel'] ?? '',
+      testDeviceSerialNumber: d['testDeviceSerialNumber'] ?? '',
+      testType: d['testType'] ?? 'اختبار اداء وظيفي لجهاز شاشة مراقبة المريض',
+      testLab: d['testLab'] ?? 'معمل معايرة الأجهزة الطبية التابع لوحدة معايرة واستشارات الأجهزة الطبية (يوميك) التابعة لمركز الاستشارات الهندسية بكلية الهندسة جامعة المنيا',
       createdAt: (d['createdAt'] as Timestamp).toDate(),
       status: d['status'] ?? 'draft',
     );

@@ -82,13 +82,13 @@ class MonitorConstants {
 
   // Compute accepted range for HR: x + x(±5)/100 ∓ 1
   static List<double> hrAcceptedRange(double x) {
-    final tol = (x * 5 / 100) - 1;
+    double tol = (x * 5 / 100) - 1;
     return [x - tol, x + tol];
   }
 
   // SPO2: x + x(±2)/100 ∓ 0
   static List<double> spo2AcceptedRange(double x) {
-    final tol = x * 2 / 100;
+    double tol = x * 2 / 100;
     return [x - tol, x + tol];
   }
 
@@ -120,13 +120,13 @@ class MonitorConstants {
 
   // Respiration: x + x(±1)/100 ∓ 0
   static List<double> respirationAcceptedRange(double x) {
-    final tol = x * 1 / 100;
+    double tol = x * 1 / 100;
     return [x - tol, x + tol];
   }
 
   // Temperature: x + x(±0.2)/100 ∓ 0
   static List<double> tempAcceptedRange(double x) {
-    final tol = x * 0.2 / 100;
+    double tol = x * 0.2 / 100;
     return [x - tol, x + tol];
   }
 

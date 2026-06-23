@@ -29,10 +29,58 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
   final _serialCtrl = TextEditingController();
   final _modelCtrl = TextEditingController();
   final _visitTimeCtrl = TextEditingController();
+  final _testDeviceMfrCtrl = TextEditingController();
+  final _testDeviceSerialCtrl = TextEditingController();
+  final _testDeviceModelCtrl = TextEditingController();
+  final _engineerNameCtrl = TextEditingController();
+  final _testTypeCtrl = TextEditingController();
+  final _testLabCtrl = TextEditingController();
   DateTime _orderDate = DateTime.now();
   DateTime _visitDate = DateTime.now();
   String? _deviceType;
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    final s = _ctrl.session.value;
+    if (s != null) {
+      _customerCtrl.text = s.customerName;
+      _deptCtrl.text = s.department;
+      _mfrCtrl.text = s.manufacturer;
+      _serialCtrl.text = s.serialNumber;
+      _modelCtrl.text = s.model;
+      _visitTimeCtrl.text = s.visitTime;
+      _orderDate = s.orderDate;
+      _visitDate = s.visitDate;
+      if (s.deviceType.isNotEmpty) {
+        _deviceType = s.deviceType;
+      }
+      _testDeviceMfrCtrl.text = s.testDeviceManufacturer;
+      _testDeviceSerialCtrl.text = s.testDeviceSerialNumber;
+      _testDeviceModelCtrl.text = s.testDeviceModel;
+      _engineerNameCtrl.text = s.engineerName;
+      _testTypeCtrl.text = s.testType;
+      _testLabCtrl.text = s.testLab;
+    }
+  }
+
+  @override
+  void dispose() {
+    _customerCtrl.dispose();
+    _deptCtrl.dispose();
+    _mfrCtrl.dispose();
+    _serialCtrl.dispose();
+    _modelCtrl.dispose();
+    _visitTimeCtrl.dispose();
+    _testDeviceMfrCtrl.dispose();
+    _testDeviceSerialCtrl.dispose();
+    _testDeviceModelCtrl.dispose();
+    _engineerNameCtrl.dispose();
+    _testTypeCtrl.dispose();
+    _testLabCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickDate(bool isOrder) async {
     final d = await showDatePicker(
@@ -114,6 +162,34 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
               ),
               const SizedBox(height: 16),
               SectionCard(
+                title: 'Test & Lab Information',
+                icon: Icons.science_outlined,
+                children: [
+                  CustomTextField(
+                    label: 'Tester Name (القائم بالاختبار)',
+                    hint: 'Enter tester name',
+                    controller: _engineerNameCtrl,
+                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Test Laboratory (معمل الاختبار)',
+                    hint: 'Enter laboratory name',
+                    controller: _testLabCtrl,
+                    maxLines: 2,
+                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: 'Test Type (نوع الاختبار)',
+                    hint: 'Enter test type',
+                    controller: _testTypeCtrl,
+                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SectionCard(
                 title: 'Monitor Data',
                 icon: Icons.monitor_heart_outlined,
                 children: [
@@ -177,6 +253,40 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              SectionCard(
+                title: 'Testing Device Data',
+                icon: Icons.biotech_outlined,
+                children: [
+                  CustomTextField(
+                    label: 'Testing Device Manufacturer',
+                    hint: 'e.g., Pronk, Fluke',
+                    controller: _testDeviceMfrCtrl,
+                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'Testing Device Serial Number',
+                          hint: 'S/N',
+                          controller: _testDeviceSerialCtrl,
+                          validator: (v) => v!.isEmpty ? 'Required' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'Testing Device Model',
+                          hint: 'Model name',
+                          controller: _testDeviceModelCtrl,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
               const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
@@ -193,6 +303,12 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
                         serialNumber: _serialCtrl.text.trim(),
                         model: _modelCtrl.text.trim(),
                         deviceType: _deviceType ?? '',
+                        testDeviceManufacturer: _testDeviceMfrCtrl.text.trim(),
+                        testDeviceModel: _testDeviceModelCtrl.text.trim(),
+                        testDeviceSerialNumber: _testDeviceSerialCtrl.text.trim(),
+                        engineerName: _engineerNameCtrl.text.trim(),
+                        testType: _testTypeCtrl.text.trim(),
+                        testLab: _testLabCtrl.text.trim(),
                       );
                       Get.toNamed(AppRoutes.calibrationQualitative);
                     }
@@ -633,7 +749,7 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                                 settingController: settingControllers[i],
                                 controllers: controllers[i],
                                 rangeStr:
-                                    '${range[0].toStringAsFixed(1)}-${range[1].toStringAsFixed(1)}',
+                                    '${range[0].toStringAsFixed(3)}-${range[1].toStringAsFixed(3)}',
                                 avg: rows[i].average,
                                 status: rows[i].status,
                                 isLast: i == rows.length - 1,

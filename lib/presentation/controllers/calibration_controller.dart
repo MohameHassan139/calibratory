@@ -68,6 +68,12 @@ class CalibrationController extends GetxController {
     required String serialNumber,
     required String model,
     required String deviceType,
+    required String testDeviceManufacturer,
+    required String testDeviceModel,
+    required String testDeviceSerialNumber,
+    required String engineerName,
+    required String testType,
+    required String testLab,
   }) {
     session.update((s) {
       s!.customerName = customerName;
@@ -79,6 +85,12 @@ class CalibrationController extends GetxController {
       s.serialNumber = serialNumber;
       s.model = model;
       s.deviceType = deviceType;
+      s.testDeviceManufacturer = testDeviceManufacturer;
+      s.testDeviceModel = testDeviceModel;
+      s.testDeviceSerialNumber = testDeviceSerialNumber;
+      s.engineerName = engineerName;
+      s.testType = testType;
+      s.testLab = testLab;
     });
   }
 
@@ -271,6 +283,7 @@ class CalibrationController extends GetxController {
       await FirebaseService.saveFinalResults(s);
 
       // Upload certificate .docx to Supabase storage and save URL to Firebase
+      String? publicUrl;
       try {
         Get.snackbar('Uploading', 'Saving certificate to cloud…',
             snackPosition: SnackPosition.BOTTOM,
@@ -286,7 +299,7 @@ class CalibrationController extends GetxController {
                 fileOptions: const FileOptions(upsert: true));
 
         // Get public URL and persist it on the session + Firestore
-        final publicUrl = Supabase.instance.client.storage
+        publicUrl = Supabase.instance.client.storage
             .from('calibration-certificates')
             .getPublicUrl(storagePath);
 
@@ -299,8 +312,15 @@ class CalibrationController extends GetxController {
           'supabasePath': storagePath,
         });
 
-        // Send calibration report email if client email was provided
-        if (clientEmail != null && clientEmail.isNotEmpty) {
+        print('☁️ Certificate uploaded to Supabase: $storagePath');
+      } catch (uploadErr) {
+        // Non-fatal: log but don't block the user
+        print('⚠️ Supabase upload failed: $uploadErr');
+      }
+
+      // Send calibration report email — runs regardless of Supabase upload result
+      if (clientEmail != null && clientEmail.isNotEmpty) {
+        try {
           final sent = await EmailService.sendCertificateEmail(
             toEmail: clientEmail,
             clientName: s.customerName,
@@ -308,7 +328,7 @@ class CalibrationController extends GetxController {
             serialNumber: s.serialNumber,
             model: s.model,
             passed: finalResult == 'PASS',
-            certificateUrl: publicUrl,
+            certificateUrl: publicUrl ?? '',
           );
           if (sent) {
             Get.snackbar(
@@ -317,13 +337,12 @@ class CalibrationController extends GetxController {
                 backgroundColor: const Color(0xFF1565C0),
                 colorText: const Color(0xFFFFFFFF),
                 duration: const Duration(seconds: 3));
+          } else {
+            print('⚠️ Certificate email returned false for $clientEmail');
           }
+        } catch (emailErr) {
+          print('⚠️ Certificate email failed: $emailErr');
         }
-
-        print('☁️ Certificate uploaded to Supabase: $storagePath');
-      } catch (uploadErr) {
-        // Non-fatal: log but don't block the user
-        print('⚠️ Supabase upload failed: $uploadErr');
       }
 
       Get.snackbar('Done', 'Certificate ready ✓',

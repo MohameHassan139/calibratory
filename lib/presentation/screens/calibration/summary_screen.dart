@@ -60,6 +60,18 @@ class _CalibrationSummaryScreenState extends State<CalibrationSummaryScreen> {
                   SummaryRow('Manufacturer', session.manufacturer),
                   SummaryRow('Department', session.department),
                   const Divider(height: 16),
+                  SummaryRow('Tester (القائم بالاختبار)', session.engineerName),
+                  SummaryRow('Test Lab (المعمل)', session.testLab),
+                  SummaryRow('Test Type (نوع الاختبار)', session.testType),
+                  if (session.testDeviceManufacturer.isNotEmpty ||
+                      session.testDeviceModel.isNotEmpty ||
+                      session.testDeviceSerialNumber.isNotEmpty) ...[
+                    const Divider(height: 16),
+                    SummaryRow('Test Device Mfr', session.testDeviceManufacturer),
+                    SummaryRow('Test Device Model', session.testDeviceModel),
+                    SummaryRow('Test Device S/N', session.testDeviceSerialNumber),
+                  ],
+                  const Divider(height: 16),
                   SummaryRow(
                       'HR Table', session.showHrTable ? '✓ Included' : '✗ NF'),
                   SummaryRow('SPO2 Table',

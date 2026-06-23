@@ -306,7 +306,7 @@ class _NIBPScreenState extends State<NIBPScreen> {
     final effectiveSetting = double.tryParse(setCtrl.text.trim()) ?? hint;
     final range = MonitorConstants.nibpAcceptedRange(effectiveSetting);
     final rangeStr =
-        '${range[0].toStringAsFixed(1)}-${range[1].toStringAsFixed(1)}';
+        '${range[0].toStringAsFixed(3)}-${range[1].toStringAsFixed(3)}';
     final isLast = !isSystolic && i == rows.length - 1;
 
     return Container(

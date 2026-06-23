@@ -392,7 +392,32 @@ class _DeviceInfoSection extends StatelessWidget {
           _InfoRow(label: 'Manufacturer', value: session.manufacturer),
           _InfoRow(label: 'Model', value: session.model),
           _InfoRow(label: 'Serial Number', value: session.serialNumber),
-          _InfoRow(label: 'Engineer', value: session.engineerName),
+          _InfoRow(label: 'Engineer (Tester)', value: session.engineerName),
+          _InfoRow(label: 'Test Laboratory', value: session.testLab),
+          _InfoRow(label: 'Test Type', value: session.testType),
+          if (session.testDeviceManufacturer.isNotEmpty ||
+              session.testDeviceModel.isNotEmpty ||
+              session.testDeviceSerialNumber.isNotEmpty) ...[
+            const Divider(height: 24),
+            const Text(
+              'Testing Device Information',
+              style: TextStyle(
+                fontFamily: 'Syne',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _InfoRow(
+                label: 'Test Device Manufacturer',
+                value: session.testDeviceManufacturer),
+            _InfoRow(
+                label: 'Test Device Model', value: session.testDeviceModel),
+            _InfoRow(
+                label: 'Test Device Serial Number',
+                value: session.testDeviceSerialNumber),
+          ],
         ],
       ),
     );
@@ -411,19 +436,24 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
         ],
