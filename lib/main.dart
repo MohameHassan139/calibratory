@@ -23,6 +23,7 @@ import 'presentation/screens/history/history_screen.dart';
 import 'presentation/screens/profile/profile_screen.dart';
 import 'presentation/screens/stats/calibration_stats_screen.dart';
 import 'presentation/screens/calibration/syringe_screens.dart';
+import 'presentation/screens/calibration/sphygmomanometer_screens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -230,6 +231,33 @@ class CalibOrtyApp extends StatelessWidget {
         GetPage(
           name: AppRoutes.syringeSummary,
           page: () => const SyringeSummaryScreen(),
+        ),
+
+        // ── Sphygmomanometer calibration flow ────────────────────────────
+        // Static pressure — reuses MeasurementTableScreen (same as HR/SPO2/Resp)
+        GetPage(
+          name: AppRoutes.sphygmoStatic,
+          page: () {
+            final ctrl = Get.find<CalibrationController>();
+            return MeasurementTableScreen(
+              title: 'Static Pressure Measurement',
+              unit: 'mmHg',
+              settings: List<double>.from(SphygmoConstants.staticSettings),
+              acceptedRangeFunc: SphygmoConstants.staticAcceptedRange,
+              initialRows: ctrl.session.value?.sphygmoStaticRows ?? [],
+              onSave: ctrl.updateSphygmoStaticRows,
+              nextRoute: AppRoutes.sphygmoSummary,
+              stepIndex: 1,
+              totalSteps: 2,
+              stepLabels: const ['Qualitative', 'Static Pressure'],
+              nextButtonLabel: 'Complete & Review',
+            );
+          },
+        ),
+
+        GetPage(
+          name: AppRoutes.sphygmoSummary,
+          page: () => const SphygmoSummaryScreen(),
         ),
       ],
     );

@@ -26,6 +26,10 @@ class AppRoutes {
   static const String syringeFlowRate = '/calibration/syringe/flow-rate';
   static const String syringeOcclusion = '/calibration/syringe/occlusion';
   static const String syringeSummary = '/calibration/syringe/summary';
+
+  // ── Sphygmomanometer calibration steps ─────────────────────────────────
+  static const String sphygmoStatic = '/calibration/sphygmomanometer/static';
+  static const String sphygmoSummary = '/calibration/sphygmomanometer/summary';
 }
 
 // lib/core/constants/app_strings.dart
@@ -178,7 +182,7 @@ class MonitorConstants {
     'Infusion Pumps',
     'Syringe Pumps',
     'Manual Defibrillators',
-    'AEDs',
+    'Sphygmomanometers',
     'Ventilators',
     'CPAP / BiPAP',
     'Suction Machines',
@@ -236,4 +240,44 @@ class SyringeConstants {
   // ── Occlusion accepted limits ─────────────────────────────────────────────
   static const double occPeakAcceptedMax = 723.8; // < 723.8 mmHg
   static const double occTimeAcceptedMax = 12.0; // <= 12 sec
+}
+
+/// Constants specific to Sphygmomanometer calibration.
+class SphygmoConstants {
+  // ── Qualitative test items (Visual Inspection) ───────────────────────────
+  static const List<String> qualitativeItems = [
+    'Chassis/Housing',
+    'Hand pump (bulb)',
+    'NIBP Cuff',
+    'Pressure ruler glass',
+    'Mercury Container',
+    'Pressure Cables',
+  ];
+
+  // ── Static pressure setting values (mmHg) ───────────────────────────────
+  static const List<double> staticSettings = [0, 50, 100, 150, 200, 250];
+
+  // ── Static pressure accepted ranges (const ±2.5%) ────────────────────────
+  // 0 → [0, 0], 50 → [48.75, 51.25], 100 → [97.5, 102.5],
+  // 150 → [146.25, 153.75], 200 → [195, 205], 250 → [243.75, 256.25]
+  static const List<List<double>> staticAcceptedRanges = [
+    [0.0, 0.0],
+    [48.75, 51.25],
+    [97.5, 102.5],
+    [146.25, 153.75],
+    [195.0, 205.0],
+    [243.75, 256.25],
+  ];
+
+  /// Returns the accepted range for a given static pressure setting.
+  static List<double> staticAcceptedRange(double setting) {
+    for (int i = 0; i < staticSettings.length; i++) {
+      if ((staticSettings[i] - setting).abs() < 0.01) {
+        return staticAcceptedRanges[i];
+      }
+    }
+    // Fallback: ±2.5%
+    final tol = setting * 2.5 / 100;
+    return [setting - tol, setting + tol];
+  }
 }

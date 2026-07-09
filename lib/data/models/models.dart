@@ -186,6 +186,9 @@ class CalibrationSession {
   // [0] = Peak value (mmHg), [1] = Time to Alarm (sec)
   List<OcclusionRow> syringeOcclusionRows;
 
+  // ── Sphygmomanometer — static pressure rows (6 rows: 0,50,100,150,200,250 mmHg)
+  List<MeasurementRow> sphygmoStaticRows;
+
   // Notes
   String notes;
 
@@ -232,6 +235,7 @@ class CalibrationSession {
     this.temp2Rows = const [],
     this.syringeFlowRows = const [],
     this.syringeOcclusionRows = const [],
+    this.sphygmoStaticRows = const [],
     this.notes = '',
     String? hospitalName,
     this.testDate,
@@ -298,6 +302,7 @@ class CalibrationSession {
         'syringeFlowRows': syringeFlowRows.map((r) => r.toMap()).toList(),
         'syringeOcclusionRows':
             syringeOcclusionRows.map((r) => r.toMap()).toList(),
+        'sphygmoStaticRows': sphygmoStaticRows.map((r) => r.toMap()).toList(),
         'notes': notes,
         'hospitalName': hospitalName,
         'testDate': testDate != null ? Timestamp.fromDate(testDate!) : null,
@@ -381,6 +386,9 @@ class CalibrationSession {
           .toList(),
       syringeOcclusionRows: (d['syringeOcclusionRows'] as List? ?? [])
           .map((e) => OcclusionRow.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      sphygmoStaticRows: (d['sphygmoStaticRows'] as List? ?? [])
+          .map((e) => MeasurementRow.fromMap(e as Map<String, dynamic>))
           .toList(),
       notes: d['notes'] ?? '',
       overallResult: d['overallResult'] as String?,

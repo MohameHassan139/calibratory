@@ -654,6 +654,139 @@ class CertificateService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // GENERATE SPHYGMOMANOMETER CERTIFICATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Generate a filled sphygmomanometer certificate (.docx) for [session].
+  static Future<String> generateSphygmomanometerCertificate(
+      CalibrationSession session) async {
+    final ByteData data =
+        await rootBundle.load('assets/sphygmomanometer_certificate.docx');
+    final Uint8List templateBytes = data.buffer.asUint8List();
+    final Archive archive = ZipDecoder().decodeBytes(templateBytes);
+
+    final List<ArchiveFile> newFiles = [];
+    for (final file in archive) {
+      if (file.name == 'word/document.xml') {
+        final String xml =
+            utf8.decode(file.content as List<int>, allowMalformed: true);
+        final String patched = _patchSphygmoDocument(xml, session);
+        final List<int> bytes = utf8.encode(patched);
+        newFiles.add(ArchiveFile(file.name, bytes.length, bytes));
+      } else {
+        newFiles.add(file);
+      }
+    }
+
+    final Archive newArchive = Archive();
+    for (final f in newFiles) newArchive.addFile(f);
+    final List<int>? outBytes = ZipEncoder().encode(newArchive);
+    if (outBytes == null)
+      throw Exception('Sphygmomanometer certificate ZIP encoding failed');
+
+    final dir = await getApplicationDocumentsDirectory();
+    final String uid = const Uuid().v4().substring(0, 8);
+    final String fileName = 'sphygmo_cert_${session.serialNumber}_$uid.docx';
+    final String path = '${dir.path}/$fileName';
+    await File(path).writeAsBytes(outBytes);
+    return path;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD SPHYGMOMANOMETER MAP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static Map<String, String> _buildSphygmoMap(CalibrationSession s) {
+    final map = <String, String>{};
+
+    // ── Header (same keys as other certificates) ─────────────────────────
+    map['{HospitalName}'] =
+        s.hospitalName.isNotEmpty ? s.hospitalName : s.customerName;
+    map['{Manufacturer}'] = s.manufacturer;
+    map['{Model}'] = s.model;
+    map['{SerialNo}'] = s.serialNumber;
+    map['{Department}'] = s.department;
+    map['{VisitDate}'] = _fmtDate(s.visitDate);
+    map['{Visit Date}'] = _fmtDate(s.visitDate);
+    map['{OrderDate}'] = _fmtDate(s.orderDate);
+    map['{Order Date}'] = _fmtDate(s.orderDate);
+    map['{EngineerName}'] = s.engineerName;
+    map['{CertNo}'] = s.certificateNumber ?? '';
+    map['{TestDeviceManufacturer}'] = s.testDeviceManufacturer;
+    map['{TestDeviceMfr}'] = s.testDeviceManufacturer;
+    map['{TestDeviceModel}'] = s.testDeviceModel;
+    map['{TestDeviceSerialNo}'] = s.testDeviceSerialNumber;
+    map['{TestDeviceSerialNumber}'] = s.testDeviceSerialNumber;
+    map['{TestType}'] = s.testType;
+    map['{TestLab}'] = s.testLab;
+    map['{LabName}'] = s.testLab;
+    map['{Final_Qualitative}'] = s.qualitativeResult ?? 'N/F';
+    map['{Final_Quantitative}'] = s.quantitativeResult ?? 'N/F';
+    map['{Final}'] = s.overallResult ?? 'N/F';
+    map['{QualResult}'] = s.qualitativeResult ?? 'N/F';
+    map['{QuantResult}'] = s.quantitativeResult ?? 'N/F';
+    map['{OverallResult}'] = s.overallResult ?? 'N/F';
+
+    // ── Qualitative — Visual Inspection ──────────────────────────────────
+    final q = s.qualitativeResults;
+    map['{Cha}'] = _qs(q['Chassis/Housing']);
+    map['{Han}'] = _qs(q['Hand pump (bulb)']);
+    map['{NIBP}'] = _qs(q['NIBP Cuff']);
+    map['{Pre_ru}'] = _qs(q['Pressure ruler glass']);
+    map['{Mer}'] = _qs(q['Mercury Container']);
+    map['{pre_ca}'] = _qs(q['Pressure Cables']);
+
+    // ── Quantitative — Static Pressure Measurement ───────────────────────
+    const settings = SphygmoConstants.staticSettings;
+    const ranges = SphygmoConstants.staticAcceptedRanges;
+    final suffixes = ['0', '50', '100', '150', '200', '250'];
+
+    for (int i = 0; i < settings.length; i++) {
+      final String suf = suffixes[i];
+      final double setting = settings[i];
+      final List<double> accepted = ranges[i];
+      final String accStr =
+          setting == 0 ? '0' : '(${accepted[0]}  -  ${accepted[1]})';
+
+      final MeasurementRow? row =
+          i < s.sphygmoStaticRows.length ? s.sphygmoStaticRows[i] : null;
+
+      if (row == null) {
+        map['{sta_set_$suf}'] = setting.toStringAsFixed(0);
+        map['{sta_avg_$suf}'] = 'N/A';
+        map['{sta_err_$suf}'] = 'N/A';
+        map['{sta_acc_$suf}'] = accStr;
+        map['{sta_sta_$suf}'] = 'N/A';
+        map['{sta_unc_$suf}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double err = (setting - avg).abs();
+        map['{sta_set_$suf}'] = setting.toStringAsFixed(0);
+        map['{sta_avg_$suf}'] = avg.toStringAsFixed(3);
+        map['{sta_err_$suf}'] = err.toStringAsFixed(3);
+        map['{sta_acc_$suf}'] = accStr;
+        map['{sta_sta_$suf}'] = row.status == true
+            ? 'PASS'
+            : row.status == false
+                ? 'FAIL'
+                : 'N/A';
+        map['{sta_unc_$suf}'] = _typeA(row.reads, decimals: 4);
+      }
+    }
+
+    return map;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PATCH SPHYGMOMANOMETER DOCUMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static String _patchSphygmoDocument(String xml, CalibrationSession s) {
+    final Map<String, String> replacements = _buildSphygmoMap(s);
+    return _collapseAndReplace(xml, replacements);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PATCH DOCUMENT
   // ═══════════════════════════════════════════════════════════════════════════
 

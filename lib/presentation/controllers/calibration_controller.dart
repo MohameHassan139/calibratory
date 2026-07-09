@@ -567,6 +567,160 @@ class CalibrationController extends GetxController {
     }
   }
 
+  // ── Sphygmomanometer ──────────────────────────────────────────────────────
+
+  void updateSphygmoStaticRows(List<MeasurementRow> rows) {
+    session.update((s) => s!.sphygmoStaticRows = rows);
+    _validateSphygmoStatic();
+  }
+
+  void _validateSphygmoStatic() {
+    final rows = session.value!.sphygmoStaticRows;
+    const settings = SphygmoConstants.staticSettings;
+    for (int i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      if (row.reads.isNotEmpty) {
+        row.average = row.computedAverage;
+        final range = i < settings.length
+            ? SphygmoConstants.staticAcceptedRange(settings[i])
+            : SphygmoConstants.staticAcceptedRange(row.settingValue);
+        // 0 mmHg row: pass when average == 0 (range [0,0])
+        if (range[0] == 0 && range[1] == 0) {
+          row.status = row.average! == 0;
+        } else {
+          row.status = row.average! >= range[0] && row.average! <= range[1];
+        }
+      }
+    }
+  }
+
+  String _computeSphygmoQuantResult() {
+    final statuses =
+        session.value!.sphygmoStaticRows.map((r) => r.status).toList();
+    final nonNull = statuses.whereType<bool>().toList();
+    if (nonNull.isEmpty) return 'N/F';
+    if (nonNull.any((st) => !st)) return 'FAIL';
+    return 'PASS';
+  }
+
+  Future<void> completeSphygmoCalibration({
+    String notes = '',
+    String? clientEmail,
+  }) async {
+    isLoading.value = true;
+    try {
+      final s = session.value!;
+      s.notes = notes;
+      s.testDate = DateTime.now();
+      s.certificateNumber = _nextCertNumber();
+      s.hospitalName = s.customerName;
+      s.status = 'completed';
+      s.id = s.id ?? _firestore.collection('calibrations').doc().id;
+
+      final String qualResult = _computeQualResult();
+      final String quantResult = _computeSphygmoQuantResult();
+      final String finalResult = _combineResults(qualResult, quantResult);
+
+      s.qualitativeResult = qualResult;
+      s.quantitativeResult = quantResult;
+      s.overallResult = finalResult;
+
+      Get.snackbar('Generating', 'Building sphygmomanometer certificate…',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2));
+
+      final String certPath =
+          await CertificateService.generateSphygmomanometerCertificate(s);
+      print('✅ Sphygmomanometer certificate at: $certPath');
+
+      if (!File(certPath).existsSync()) {
+        throw Exception('Certificate file was not created at $certPath');
+      }
+
+      history.insert(0, s);
+
+      Get.snackbar('Uploading', 'Saving to Firebase…',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2));
+
+      await FirebaseService.uploadCalibrationSession(s);
+      await FirebaseService.saveEngineerData(s.engineerId, s);
+      await FirebaseService.saveClientData(s, clientEmail);
+      await FirebaseService.saveQualitativeResults(s);
+      await FirebaseService.saveQuantitativeResults(s);
+      await FirebaseService.saveNotes(s);
+      await FirebaseService.saveFinalResults(s);
+
+      String? publicUrl;
+      try {
+        Get.snackbar('Uploading', 'Saving certificate to cloud…',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 2));
+        final certFile = File(certPath);
+        final fileName = certPath.split('/').last;
+        final storagePath = '${s.engineerId}/$fileName';
+        await Supabase.instance.client.storage
+            .from('calibration-certificates')
+            .upload(storagePath, certFile,
+                fileOptions: const FileOptions(upsert: true));
+        publicUrl = Supabase.instance.client.storage
+            .from('calibration-certificates')
+            .getPublicUrl(storagePath);
+        s.certificateUrl = publicUrl;
+        s.supabasePath = storagePath;
+        await _firestore.collection('calibrations').doc(s.id).update({
+          'certificateUrl': publicUrl,
+          'supabasePath': storagePath,
+        });
+      } catch (uploadErr) {
+        print('⚠️ Supabase upload failed: $uploadErr');
+      }
+
+      if (clientEmail != null && clientEmail.isNotEmpty) {
+        try {
+          await EmailService.sendCertificateEmail(
+            toEmail: clientEmail,
+            clientName: s.customerName,
+            engineerName: s.engineerName,
+            serialNumber: s.serialNumber,
+            model: s.model,
+            passed: finalResult == 'PASS',
+            certificateUrl: publicUrl ?? '',
+          );
+        } catch (emailErr) {
+          print('⚠️ Certificate email failed: $emailErr');
+        }
+      }
+
+      Get.snackbar('Done', 'Sphygmomanometer certificate ready ✓',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFF22C55E),
+          colorText: const Color(0xFFFFFFFF),
+          duration: const Duration(seconds: 2));
+
+      final OpenResult result = await OpenFilex.open(certPath);
+      if (result.type == ResultType.noAppToOpen) {
+        Get.snackbar('No App Found',
+            'Install Microsoft Word or a document viewer to open .docx files',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 5));
+      } else if (result.type != ResultType.done) {
+        Get.snackbar('Cannot Open', result.message,
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 5));
+      }
+
+      Get.offAllNamed(AppRoutes.sphygmoSummary);
+    } catch (e, stack) {
+      print('❌ completeSphygmoCalibration: $e\n$stack');
+      Get.snackbar('Error', e.toString(),
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5));
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<void> loadHistory() async {
     try {
       isLoading.value = true;

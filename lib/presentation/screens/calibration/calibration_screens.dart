@@ -339,11 +339,18 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
   late Map<String, ItemStatus> _ecgResults;
 
   bool get _isSyringe => _ctrl.session.value?.deviceType == 'Syringe Pumps';
+  bool get _isSphygmo => _ctrl.session.value?.deviceType == 'Sphygmomanometers';
 
   @override
   void initState() {
     super.initState();
-    if (_isSyringe) {
+    if (_isSphygmo) {
+      _results = {
+        for (var item in SphygmoConstants.qualitativeItems)
+          item: ItemStatus.pass,
+      };
+      _ecgResults = {};
+    } else if (_isSyringe) {
       _results = {
         for (var item in SyringeConstants.qualitativeItems)
           item: ItemStatus.pass,
@@ -364,6 +371,11 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
   void _next() {
     _ctrl.updateQualitative(_results);
     _ctrl.updateEcgRepresentation(_ecgResults);
+
+    if (_isSphygmo) {
+      Get.toNamed(AppRoutes.sphygmoStatic);
+      return;
+    }
 
     if (_isSyringe) {
       Get.toNamed(AppRoutes.syringeFlowRate);
@@ -388,8 +400,55 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isSphygmo) return _buildSphygmoQual(context);
     if (_isSyringe) return _buildSyringeQual(context);
     return _buildMonitorQual(context);
+  }
+
+  // ── Sphygmomanometer Qualitative ─────────────────────────────────────────
+  Widget _buildSphygmoQual(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Qualitative Test'),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(40),
+          child: CalibrationStepBar(
+            totalSteps: 2,
+            currentStep: 0,
+            stepLabels: ['Qualitative', 'Static Pressure'],
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _infoBanner(
+                'Select Pass / Fail / N/A for each sphygmomanometer component.'),
+            const SizedBox(height: 16),
+            SectionCard(
+              title: 'Visual Inspection',
+              icon: Icons.checklist_outlined,
+              children: SphygmoConstants.qualitativeItems
+                  .map((item) => QualRow(
+                        item: item,
+                        value: _results[item]!,
+                        onChanged: (v) => setState(() => _results[item] = v),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _next,
+                child: const Text('Next: Static Pressure Measurement'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Syringe Pump Qualitative ─────────────────────────────────────────────
