@@ -189,6 +189,9 @@ class CalibrationSession {
   // ── Sphygmomanometer — static pressure rows (6 rows: 0,50,100,150,200,250 mmHg)
   List<MeasurementRow> sphygmoStaticRows;
 
+  // ── ECG Machine — heart rate rows (6 rows: 40,60,80,100,150,200 BPM) ───
+  List<MeasurementRow> ecgMachineHrRows;
+
   // Notes
   String notes;
 
@@ -236,6 +239,7 @@ class CalibrationSession {
     this.syringeFlowRows = const [],
     this.syringeOcclusionRows = const [],
     this.sphygmoStaticRows = const [],
+    this.ecgMachineHrRows = const [],
     this.notes = '',
     String? hospitalName,
     this.testDate,
@@ -303,6 +307,7 @@ class CalibrationSession {
         'syringeOcclusionRows':
             syringeOcclusionRows.map((r) => r.toMap()).toList(),
         'sphygmoStaticRows': sphygmoStaticRows.map((r) => r.toMap()).toList(),
+        'ecgMachineHrRows': ecgMachineHrRows.map((r) => r.toMap()).toList(),
         'notes': notes,
         'hospitalName': hospitalName,
         'testDate': testDate != null ? Timestamp.fromDate(testDate!) : null,
@@ -390,6 +395,9 @@ class CalibrationSession {
       sphygmoStaticRows: (d['sphygmoStaticRows'] as List? ?? [])
           .map((e) => MeasurementRow.fromMap(e as Map<String, dynamic>))
           .toList(),
+      ecgMachineHrRows: (d['ecgMachineHrRows'] as List? ?? [])
+          .map((e) => MeasurementRow.fromMap(e as Map<String, dynamic>))
+          .toList(),
       notes: d['notes'] ?? '',
       overallResult: d['overallResult'] as String?,
       testDate:
@@ -402,11 +410,26 @@ class CalibrationSession {
       testDeviceManufacturer: d['testDeviceManufacturer'] ?? '',
       testDeviceModel: d['testDeviceModel'] ?? '',
       testDeviceSerialNumber: d['testDeviceSerialNumber'] ?? '',
-      testType: d['testType'] ?? 'Performance Test for Patient Monitor',
-      testLab: d['testLab'] ?? 'Medical Equipment Calibration and Consultation Lab (UMECC), Faculty of Engineering, Minia University',
+      testType:
+          _stripXml(d['testType'], 'Performance Test for Patient Monitor'),
+      testLab: _stripXml(d['testLab'],
+          'Medical Equipment Calibration and Consultation Lab (UMECC), Faculty of Engineering, Minia University'),
       createdAt: (d['createdAt'] as Timestamp).toDate(),
       status: d['status'] ?? 'draft',
     );
+  }
+
+  /// Returns [fallback] if [value] is null, empty, or appears to contain
+  /// raw Word XML markup (i.e., contains `<w:`). This guards against data
+  /// corruption where the Word XML was accidentally stored instead of the
+  /// plain-text value.
+  static String _stripXml(dynamic value, String fallback) {
+    if (value == null) return fallback;
+    final s = value as String;
+    if (s.isEmpty) return fallback;
+    // If the string contains Word XML tags, it's corrupted — return fallback
+    if (s.contains('<w:') || s.contains('</w:')) return fallback;
+    return s;
   }
 }
 

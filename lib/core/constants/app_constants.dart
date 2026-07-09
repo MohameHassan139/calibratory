@@ -30,6 +30,10 @@ class AppRoutes {
   // ── Sphygmomanometer calibration steps ─────────────────────────────────
   static const String sphygmoStatic = '/calibration/sphygmomanometer/static';
   static const String sphygmoSummary = '/calibration/sphygmomanometer/summary';
+
+  // ── ECG Machine calibration steps ───────────────────────────────────────
+  static const String ecgMachineHR = '/calibration/ecg-machine/heart-rate';
+  static const String ecgMachineSummary = '/calibration/ecg-machine/summary';
 }
 
 // lib/core/constants/app_strings.dart
@@ -278,6 +282,65 @@ class SphygmoConstants {
     }
     // Fallback: ±2.5%
     final tol = setting * 2.5 / 100;
+    return [setting - tol, setting + tol];
+  }
+}
+
+/// Constants specific to ECG Machine calibration.
+class EcgMachineConstants {
+  // ── Qualitative — Visual Inspection items ───────────────────────────────
+  static const List<String> visualItems = [
+    'Chassis/Housing',
+    'Controls /Switches',
+    'Mount',
+    '10 ECG Electrodes/Leads',
+    'Casters/Brakes',
+    'Battery/charger',
+    'AC plug',
+    'Indicator/Displays',
+    'Line Cord',
+    'Labeling',
+    'Cables',
+    'Printer & papers',
+    'Screen',
+    'Representation of Standard signals (Triangle, Square, Sinusoid)',
+    'Printing ECG waveform',
+    'Represent ECG waveforms with different Amplitudes 0.5, 1,1.5,2,2.5,3,3.5',
+  ];
+
+  // ── Qualitative — ECG Arrhythmia items ──────────────────────────────────
+  static const List<String> arrhythmiaItems = [
+    'Atrial Fibrillation',
+    'Premature ventricle contraction',
+    'Ventricle Fibrillation',
+    'Paroxysmal Atrial Tachycardia (PAT)',
+    'Atrial Flutter',
+    'Polymorphic Ventricular Tachycardia (PVT)',
+  ];
+
+  // ── Heart Rate setting values (BPM) ─────────────────────────────────────
+  static const List<double> hrSettings = [40, 60, 80, 100, 150, 200];
+
+  // ── Heart Rate accepted ranges (const ±5%) ──────────────────────────────
+  // (38–42), (57–63), (76–84), (95–105), (142.5–157.5), (190–210)
+  static const List<List<double>> hrAcceptedRanges = [
+    [38.0, 42.0],
+    [57.0, 63.0],
+    [76.0, 84.0],
+    [95.0, 105.0],
+    [142.5, 157.5],
+    [190.0, 210.0],
+  ];
+
+  /// Returns the accepted range for a given HR setting.
+  static List<double> hrAcceptedRange(double setting) {
+    for (int i = 0; i < hrSettings.length; i++) {
+      if ((hrSettings[i] - setting).abs() < 0.01) {
+        return hrAcceptedRanges[i];
+      }
+    }
+    // Fallback: ±5%
+    final tol = setting * 5 / 100;
     return [setting - tol, setting + tol];
   }
 }

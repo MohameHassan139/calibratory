@@ -24,6 +24,7 @@ import 'presentation/screens/profile/profile_screen.dart';
 import 'presentation/screens/stats/calibration_stats_screen.dart';
 import 'presentation/screens/calibration/syringe_screens.dart';
 import 'presentation/screens/calibration/sphygmomanometer_screens.dart';
+import 'presentation/screens/calibration/ecg_machine_screens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -258,6 +259,33 @@ class CalibOrtyApp extends StatelessWidget {
         GetPage(
           name: AppRoutes.sphygmoSummary,
           page: () => const SphygmoSummaryScreen(),
+        ),
+
+        // ── ECG Machine calibration flow ──────────────────────────────────
+        // Heart Rate — reuses MeasurementTableScreen with ECG-specific settings
+        GetPage(
+          name: AppRoutes.ecgMachineHR,
+          page: () {
+            final ctrl = Get.find<CalibrationController>();
+            return MeasurementTableScreen(
+              title: 'Heart Rate Measurement',
+              unit: 'BPM',
+              settings: List<double>.from(EcgMachineConstants.hrSettings),
+              acceptedRangeFunc: EcgMachineConstants.hrAcceptedRange,
+              initialRows: ctrl.session.value?.ecgMachineHrRows ?? [],
+              onSave: ctrl.updateEcgMachineHrRows,
+              nextRoute: AppRoutes.ecgMachineSummary,
+              stepIndex: 1,
+              totalSteps: 2,
+              stepLabels: const ['Qualitative', 'Heart Rate'],
+              nextButtonLabel: 'Complete & Review',
+            );
+          },
+        ),
+
+        GetPage(
+          name: AppRoutes.ecgMachineSummary,
+          page: () => const EcgMachineSummaryScreen(),
         ),
       ],
     );

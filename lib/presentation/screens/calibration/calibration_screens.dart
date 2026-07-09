@@ -60,8 +60,8 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
       _testDeviceSerialCtrl.text = s.testDeviceSerialNumber;
       _testDeviceModelCtrl.text = s.testDeviceModel;
       _engineerNameCtrl.text = s.engineerName;
-      _testTypeCtrl.text = s.testType;
-      _testLabCtrl.text = s.testLab;
+      _testTypeCtrl.text = _sanitize(s.testType);
+      _testLabCtrl.text = _sanitize(s.testLab);
     }
   }
 
@@ -80,6 +80,13 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
     _testTypeCtrl.dispose();
     _testLabCtrl.dispose();
     super.dispose();
+  }
+
+  /// Returns [value] unless it looks like raw Word XML, in which case
+  /// returns an empty string so the user sees a blank field instead of markup.
+  static String _sanitize(String value) {
+    if (value.contains('<w:') || value.contains('</w:')) return '';
+    return value;
   }
 
   Future<void> _pickDate(bool isOrder) async {
@@ -340,11 +347,20 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
 
   bool get _isSyringe => _ctrl.session.value?.deviceType == 'Syringe Pumps';
   bool get _isSphygmo => _ctrl.session.value?.deviceType == 'Sphygmomanometers';
+  bool get _isEcgMachine => _ctrl.session.value?.deviceType == 'ECG Machines';
 
   @override
   void initState() {
     super.initState();
-    if (_isSphygmo) {
+    if (_isEcgMachine) {
+      // ECG Machine has both visual + arrhythmia items in one combined map
+      _results = {
+        for (var item in EcgMachineConstants.visualItems) item: ItemStatus.pass,
+        for (var item in EcgMachineConstants.arrhythmiaItems)
+          item: ItemStatus.pass,
+      };
+      _ecgResults = {};
+    } else if (_isSphygmo) {
       _results = {
         for (var item in SphygmoConstants.qualitativeItems)
           item: ItemStatus.pass,
@@ -371,6 +387,11 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
   void _next() {
     _ctrl.updateQualitative(_results);
     _ctrl.updateEcgRepresentation(_ecgResults);
+
+    if (_isEcgMachine) {
+      Get.toNamed(AppRoutes.ecgMachineHR);
+      return;
+    }
 
     if (_isSphygmo) {
       Get.toNamed(AppRoutes.sphygmoStatic);
@@ -400,9 +421,68 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isEcgMachine) return _buildEcgMachineQual(context);
     if (_isSphygmo) return _buildSphygmoQual(context);
     if (_isSyringe) return _buildSyringeQual(context);
     return _buildMonitorQual(context);
+  }
+
+  // ── ECG Machine Qualitative ──────────────────────────────────────────────
+  Widget _buildEcgMachineQual(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Qualitative Test'),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(40),
+          child: CalibrationStepBar(
+            totalSteps: 2,
+            currentStep: 0,
+            stepLabels: ['Qualitative', 'Heart Rate'],
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _infoBanner(
+                'Select Pass / Fail / N/A for each ECG machine component.'),
+            const SizedBox(height: 16),
+            SectionCard(
+              title: 'Visual Inspection',
+              icon: Icons.checklist_outlined,
+              children: EcgMachineConstants.visualItems
+                  .map((item) => QualRow(
+                        item: item,
+                        value: _results[item]!,
+                        onChanged: (v) => setState(() => _results[item] = v),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+            SectionCard(
+              title: 'Representation capability of ECG Arrhythmia',
+              icon: Icons.monitor_heart_outlined,
+              children: EcgMachineConstants.arrhythmiaItems
+                  .map((item) => QualRow(
+                        item: item,
+                        value: _results[item]!,
+                        onChanged: (v) => setState(() => _results[item] = v),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _next,
+                child: const Text('Next: Heart Rate Measurement'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Sphygmomanometer Qualitative ─────────────────────────────────────────

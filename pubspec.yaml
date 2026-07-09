@@ -64,3 +64,4 @@ flutter:
     - assets/monitor_certificate.docx
     - assets/syringe_certificate.docx
     - assets/sphygmomanometer_certificate.docx
+    - assets/ECG_certificate.docx

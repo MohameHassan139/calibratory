@@ -787,6 +787,156 @@ class CertificateService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // GENERATE ECG MACHINE CERTIFICATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Generate a filled ECG machine certificate (.docx) for [session].
+  static Future<String> generateEcgMachineCertificate(
+      CalibrationSession session) async {
+    final ByteData data = await rootBundle.load('assets/ECG_certificate.docx');
+    final Uint8List templateBytes = data.buffer.asUint8List();
+    final Archive archive = ZipDecoder().decodeBytes(templateBytes);
+
+    final List<ArchiveFile> newFiles = [];
+    for (final file in archive) {
+      if (file.name == 'word/document.xml') {
+        final String xml =
+            utf8.decode(file.content as List<int>, allowMalformed: true);
+        final String patched = _patchEcgMachineDocument(xml, session);
+        final List<int> bytes = utf8.encode(patched);
+        newFiles.add(ArchiveFile(file.name, bytes.length, bytes));
+      } else {
+        newFiles.add(file);
+      }
+    }
+
+    final Archive newArchive = Archive();
+    for (final f in newFiles) newArchive.addFile(f);
+    final List<int>? outBytes = ZipEncoder().encode(newArchive);
+    if (outBytes == null)
+      throw Exception('ECG certificate ZIP encoding failed');
+
+    final dir = await getApplicationDocumentsDirectory();
+    final String uid = const Uuid().v4().substring(0, 8);
+    final String fileName = 'ecg_cert_${session.serialNumber}_$uid.docx';
+    final String path = '${dir.path}/$fileName';
+    await File(path).writeAsBytes(outBytes);
+    return path;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD ECG MACHINE MAP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static Map<String, String> _buildEcgMachineMap(CalibrationSession s) {
+    final map = <String, String>{};
+
+    // ── Header (shared with all certificates) ────────────────────────────
+    map['{HospitalName}'] =
+        s.hospitalName.isNotEmpty ? s.hospitalName : s.customerName;
+    map['{Manufacturer}'] = s.manufacturer;
+    map['{Model}'] = s.model;
+    map['{SerialNo}'] = s.serialNumber;
+    map['{Department}'] = s.department;
+    map['{VisitDate}'] = _fmtDate(s.visitDate);
+    map['{Visit Date}'] = _fmtDate(s.visitDate);
+    map['{OrderDate}'] = _fmtDate(s.orderDate);
+    map['{Order Date}'] = _fmtDate(s.orderDate);
+    map['{EngineerName}'] = s.engineerName;
+    map['{CertNo}'] = s.certificateNumber ?? '';
+    map['{TestDeviceManufacturer}'] = s.testDeviceManufacturer;
+    map['{TestDeviceMfr}'] = s.testDeviceManufacturer;
+    map['{TestDeviceModel}'] = s.testDeviceModel;
+    map['{TestDeviceSerialNo}'] = s.testDeviceSerialNumber;
+    map['{TestDeviceSerialNumber}'] = s.testDeviceSerialNumber;
+    map['{TestType}'] = s.testType;
+    map['{TestLab}'] = s.testLab;
+    map['{LabName}'] = s.testLab;
+    map['{Final_Qualitative}'] = s.qualitativeResult ?? 'N/F';
+    map['{Final_Quantitative}'] = s.quantitativeResult ?? 'N/F';
+    map['{Final}'] = s.overallResult ?? 'N/F';
+    map['{QualResult}'] = s.qualitativeResult ?? 'N/F';
+    map['{QuantResult}'] = s.quantitativeResult ?? 'N/F';
+    map['{OverallResult}'] = s.overallResult ?? 'N/F';
+
+    // ── Qualitative — Visual Inspection ──────────────────────────────────
+    final q = s.qualitativeResults;
+    map['{Cha}'] = _qs(q['Chassis/Housing']);
+    map['{Con}'] = _qs(q['Controls /Switches']);
+    map['{Mou}'] = _qs(q['Mount']);
+    map['{ECG}'] = _qs(q['10 ECG Electrodes/Leads']);
+    map['{Cas}'] = _qs(q['Casters/Brakes']);
+    map['{Batt}'] = _qs(q['Battery/charger']);
+    map['{AC}'] = _qs(q['AC plug']);
+    map['{Ind}'] = _qs(q['Indicator/Displays']);
+    map['{Lin}'] = _qs(q['Line Cord']);
+    map['{Lab}'] = _qs(q['Labeling']);
+    map['{Cab}'] = _qs(q['Cables']);
+    map['{Pap}'] = _qs(q['Printer & papers']);
+    map['{Scr}'] = _qs(q['Screen']);
+    map['{Rep}'] = _qs(
+        q['Representation of Standard signals (Triangle, Square, Sinusoid)']);
+    map['{Pri}'] = _qs(q['Printing ECG waveform']);
+    map['{Wav}'] = _qs(q[
+        'Represent ECG waveforms with different Amplitudes 0.5, 1,1.5,2,2.5,3,3.5']);
+
+    // ── Qualitative — ECG Arrhythmia ─────────────────────────────────────
+    map['{Atr}'] = _qs(q['Atrial Fibrillation']);
+    map['{Pre_v}'] = _qs(q['Premature ventricle contraction']);
+    map['{Ven}'] = _qs(q['Ventricle Fibrillation']);
+    map['{Par}'] = _qs(q['Paroxysmal Atrial Tachycardia (PAT)']);
+    map['{Atr_flu}'] = _qs(q['Atrial Flutter']);
+    map['{Pol}'] = _qs(q['Polymorphic Ventricular Tachycardia (PVT)']);
+
+    // ── Quantitative — Heart Rate Measurement ────────────────────────────
+    const settings = EcgMachineConstants.hrSettings;
+    const ranges = EcgMachineConstants.hrAcceptedRanges;
+    final suffixes = ['40', '60', '80', '100', '150', '200'];
+
+    for (int i = 0; i < settings.length; i++) {
+      final String suf = suffixes[i];
+      final double setting = settings[i];
+      final List<double> accepted = ranges[i];
+      final String accStr = '(${accepted[0]}  -  ${accepted[1]})';
+
+      final MeasurementRow? row =
+          i < s.ecgMachineHrRows.length ? s.ecgMachineHrRows[i] : null;
+
+      if (row == null) {
+        map['{hea_set_$suf}'] = setting.toStringAsFixed(0);
+        map['{hea_avg_$suf}'] = 'N/A';
+        map['{hea_err_$suf}'] = 'N/A';
+        map['{hea_acc_$suf}'] = accStr;
+        map['{hea_sta_$suf}'] = 'N/A';
+        map['{hea_unc_$suf}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double err = (setting - avg).abs();
+        map['{hea_set_$suf}'] = setting.toStringAsFixed(0);
+        map['{hea_avg_$suf}'] = avg.toStringAsFixed(2);
+        map['{hea_err_$suf}'] = err.toStringAsFixed(2);
+        map['{hea_acc_$suf}'] = accStr;
+        map['{hea_sta_$suf}'] = row.status == true
+            ? 'PASS'
+            : row.status == false
+                ? 'FAIL'
+                : 'N/A';
+        map['{hea_unc_$suf}'] = _typeA(row.reads, decimals: 4);
+      }
+    }
+
+    return map;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PATCH ECG MACHINE DOCUMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static String _patchEcgMachineDocument(String xml, CalibrationSession s) {
+    return _collapseAndReplace(xml, _buildEcgMachineMap(s));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PATCH DOCUMENT
   // ═══════════════════════════════════════════════════════════════════════════
 
