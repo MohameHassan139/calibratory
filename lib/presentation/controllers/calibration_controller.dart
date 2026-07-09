@@ -870,6 +870,165 @@ class CalibrationController extends GetxController {
     }
   }
 
+  // ── Infusion Pump ─────────────────────────────────────────────────────────
+
+  void updateInfusionFlowRows(List<MeasurementRow> rows) {
+    session.update((s) => s!.infusionFlowRows = rows);
+    _validateInfusionFlow();
+  }
+
+  void updateInfusionOcclusionRows(List<OcclusionRow> rows) {
+    session.update((s) => s!.infusionOcclusionRows = rows);
+    _validateInfusionOcclusion();
+  }
+
+  void _validateInfusionFlow() {
+    final rows = session.value!.infusionFlowRows;
+    const settings = InfusionConstants.flowSettings;
+    for (int i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      if (row.reads.isNotEmpty) {
+        row.average = row.computedAverage;
+        final range = i < settings.length
+            ? InfusionConstants.flowAcceptedRange(settings[i])
+            : InfusionConstants.flowAcceptedRange(row.settingValue);
+        row.status = row.average! >= range[0] && row.average! <= range[1];
+      }
+    }
+  }
+
+  void _validateInfusionOcclusion() {
+    final rows = session.value!.infusionOcclusionRows;
+    for (int i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      if (row.reads.isNotEmpty) {
+        row.average = row.computedAverage;
+        row.status = i == 0
+            ? row.average! < InfusionConstants.occPeakAcceptedMax
+            : row.average! <= InfusionConstants.occTimeAcceptedMax;
+      }
+    }
+  }
+
+  String _computeInfusionQuantResult() {
+    final s = session.value!;
+    final statuses = <bool?>[
+      ...s.infusionFlowRows.map((r) => r.status),
+      ...s.infusionOcclusionRows.map((r) => r.status),
+    ];
+    final nonNull = statuses.whereType<bool>().toList();
+    if (nonNull.isEmpty) return 'N/F';
+    if (nonNull.any((st) => !st)) return 'FAIL';
+    return 'PASS';
+  }
+
+  Future<void> completeInfusionCalibration({
+    String notes = '',
+    String? clientEmail,
+  }) async {
+    isLoading.value = true;
+    try {
+      final s = session.value!;
+      s.notes = notes;
+      s.testDate = DateTime.now();
+      s.certificateNumber = _nextCertNumber();
+      s.hospitalName = s.customerName;
+      s.status = 'completed';
+      s.id = s.id ?? _firestore.collection('calibrations').doc().id;
+
+      final String qualResult = _computeQualResult();
+      final String quantResult = _computeInfusionQuantResult();
+      final String finalResult = _combineResults(qualResult, quantResult);
+      s.qualitativeResult = qualResult;
+      s.quantitativeResult = quantResult;
+      s.overallResult = finalResult;
+
+      Get.snackbar('Generating', 'Building infusion pump certificate…',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2));
+
+      final String certPath =
+          await CertificateService.generateInfusionCertificate(s);
+      if (!File(certPath).existsSync()) {
+        throw Exception('Certificate file was not created at $certPath');
+      }
+      history.insert(0, s);
+
+      await FirebaseService.uploadCalibrationSession(s);
+      await FirebaseService.saveEngineerData(s.engineerId, s);
+      await FirebaseService.saveClientData(s, clientEmail);
+      await FirebaseService.saveQualitativeResults(s);
+      await FirebaseService.saveQuantitativeResults(s);
+      await FirebaseService.saveNotes(s);
+      await FirebaseService.saveFinalResults(s);
+
+      String? publicUrl;
+      try {
+        final certFile = File(certPath);
+        final fileName = certPath.split('/').last;
+        final storagePath = '${s.engineerId}/$fileName';
+        await Supabase.instance.client.storage
+            .from('calibration-certificates')
+            .upload(storagePath, certFile,
+                fileOptions: const FileOptions(upsert: true));
+        publicUrl = Supabase.instance.client.storage
+            .from('calibration-certificates')
+            .getPublicUrl(storagePath);
+        s.certificateUrl = publicUrl;
+        s.supabasePath = storagePath;
+        await _firestore.collection('calibrations').doc(s.id).update({
+          'certificateUrl': publicUrl,
+          'supabasePath': storagePath,
+        });
+      } catch (uploadErr) {
+        print('⚠️ Supabase upload failed: $uploadErr');
+      }
+
+      if (clientEmail != null && clientEmail.isNotEmpty) {
+        try {
+          await EmailService.sendCertificateEmail(
+            toEmail: clientEmail,
+            clientName: s.customerName,
+            engineerName: s.engineerName,
+            serialNumber: s.serialNumber,
+            model: s.model,
+            passed: finalResult == 'PASS',
+            certificateUrl: publicUrl ?? '',
+          );
+        } catch (e) {
+          print('⚠️ Email failed: $e');
+        }
+      }
+
+      Get.snackbar('Done', 'Infusion pump certificate ready ✓',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFF22C55E),
+          colorText: const Color(0xFFFFFFFF),
+          duration: const Duration(seconds: 2));
+
+      final OpenResult result = await OpenFilex.open(certPath);
+      if (result.type == ResultType.noAppToOpen) {
+        Get.snackbar('No App Found',
+            'Install Microsoft Word or a document viewer to open .docx files',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 5));
+      } else if (result.type != ResultType.done) {
+        Get.snackbar('Cannot Open', result.message,
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 5));
+      }
+
+      Get.offAllNamed(AppRoutes.infusionSummary);
+    } catch (e, stack) {
+      print('❌ completeInfusionCalibration: $e\n$stack');
+      Get.snackbar('Error', e.toString(),
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 5));
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<void> loadHistory() async {
     try {
       isLoading.value = true;

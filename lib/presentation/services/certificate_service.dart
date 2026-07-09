@@ -937,6 +937,169 @@ class CertificateService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // GENERATE INFUSION PUMP CERTIFICATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static Future<String> generateInfusionCertificate(
+      CalibrationSession session) async {
+    final ByteData data =
+        await rootBundle.load('assets/infusion_certificate.docx');
+    final Uint8List templateBytes = data.buffer.asUint8List();
+    final Archive archive = ZipDecoder().decodeBytes(templateBytes);
+    final List<ArchiveFile> newFiles = [];
+    for (final file in archive) {
+      if (file.name == 'word/document.xml') {
+        final String xml =
+            utf8.decode(file.content as List<int>, allowMalformed: true);
+        final List<int> bytes =
+            utf8.encode(_collapseAndReplace(xml, _buildInfusionMap(session)));
+        newFiles.add(ArchiveFile(file.name, bytes.length, bytes));
+      } else {
+        newFiles.add(file);
+      }
+    }
+    final Archive newArchive = Archive();
+    for (final f in newFiles) newArchive.addFile(f);
+    final List<int>? outBytes = ZipEncoder().encode(newArchive);
+    if (outBytes == null)
+      throw Exception('Infusion certificate ZIP encoding failed');
+    final dir = await getApplicationDocumentsDirectory();
+    final String uid = const Uuid().v4().substring(0, 8);
+    final String path =
+        '${dir.path}/infusion_cert_${session.serialNumber}_$uid.docx';
+    await File(path).writeAsBytes(outBytes);
+    return path;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD INFUSION MAP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static Map<String, String> _buildInfusionMap(CalibrationSession s) {
+    final map = <String, String>{};
+
+    // ── Header ────────────────────────────────────────────────────────────
+    map['{HospitalName}'] =
+        s.hospitalName.isNotEmpty ? s.hospitalName : s.customerName;
+    map['{Manufacturer}'] = s.manufacturer;
+    map['{Model}'] = s.model;
+    map['{SerialNo}'] = s.serialNumber;
+    map['{Department}'] = s.department;
+    map['{VisitDate}'] = _fmtDate(s.visitDate);
+    map['{Visit Date}'] = _fmtDate(s.visitDate);
+    map['{OrderDate}'] = _fmtDate(s.orderDate);
+    map['{Order Date}'] = _fmtDate(s.orderDate);
+    map['{EngineerName}'] = s.engineerName;
+    map['{CertNo}'] = s.certificateNumber ?? '';
+    map['{TestDeviceManufacturer}'] = s.testDeviceManufacturer;
+    map['{TestDeviceMfr}'] = s.testDeviceManufacturer;
+    map['{TestDeviceModel}'] = s.testDeviceModel;
+    map['{TestDeviceSerialNo}'] = s.testDeviceSerialNumber;
+    map['{TestDeviceSerialNumber}'] = s.testDeviceSerialNumber;
+    map['{TestType}'] = s.testType;
+    map['{TestLab}'] = s.testLab;
+    map['{LabName}'] = s.testLab;
+    map['{Final_Qualitative}'] = s.qualitativeResult ?? 'N/F';
+    map['{Final_Quantitative}'] = s.quantitativeResult ?? 'N/F';
+    map['{Final}'] = s.overallResult ?? 'N/F';
+    map['{QualResult}'] = s.qualitativeResult ?? 'N/F';
+    map['{QuantResult}'] = s.quantitativeResult ?? 'N/F';
+    map['{OverallResult}'] = s.overallResult ?? 'N/F';
+
+    // ── Qualitative ───────────────────────────────────────────────────────
+    final q = s.qualitativeResults;
+    map['{Cha}'] = _qs(q['Chassis/Housing']);
+    map['{Con}'] = _qs(q['Controls /Switches']);
+    map['{Mou}'] = _qs(q['Mount']);
+    map['{Doo}'] = _qs(q['Door/Misloaded Infusion Set']);
+    map['{Cas}'] = _qs(q['Casters/Brakes']);
+    map['{Bat}'] = _qs(q['Battery/charger']);
+    map['{AC}'] = _qs(q['AC plug']);
+    map['{Ind}'] = _qs(q['Indicator/Displays']);
+    map['{Lin}'] = _qs(q['Line Cord']);
+    map['{Lab}'] = _qs(q['Labeling']);
+    map['{Cab}'] = _qs(q['Cables']);
+    map['{Air}'] = _qs(q['Air-in-Line']);
+    map['{Scr}'] = _qs(q['Screen']);
+    map['{Emp}'] = _qs(q['Empty Container']);
+    map['{Flo}'] = _qs(q['Flow-Stop Mechanism(s)']);
+    map['{Inf}'] = _qs(q['Infusion Complete']);
+
+    // ── Quantitative — Flow Rate ─────────────────────────────────────────
+    const settings = InfusionConstants.flowSettings;
+    const ranges = InfusionConstants.flowAcceptedRanges;
+    final suffixes = ['30', '60', '100', '240', '300', '600'];
+
+    for (int i = 0; i < settings.length; i++) {
+      final String suf = suffixes[i];
+      final double setting = settings[i];
+      final String accStr = '(${ranges[i][0]}  -  ${ranges[i][1]})';
+      final MeasurementRow? row =
+          i < s.infusionFlowRows.length ? s.infusionFlowRows[i] : null;
+      if (row == null) {
+        map['{set_$suf}'] = setting.toStringAsFixed(0);
+        map['{avg_$suf}'] = 'N/A';
+        map['{err_$suf}'] = 'N/A';
+        map['{acc_$suf}'] = accStr;
+        map['{sta_$suf}'] = 'N/A';
+        map['{unc_$suf}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double errPct =
+            setting > 0 ? (setting - avg).abs() / setting * 100 : 0;
+        map['{set_$suf}'] = setting.toStringAsFixed(0);
+        map['{avg_$suf}'] = avg.toStringAsFixed(3);
+        map['{err_$suf}'] = errPct.toStringAsFixed(2);
+        map['{acc_$suf}'] = accStr;
+        map['{sta_$suf}'] = row.status == true
+            ? 'PASS'
+            : row.status == false
+                ? 'FAIL'
+                : 'N/A';
+        map['{unc_$suf}'] = _typeA(row.reads, decimals: 4);
+      }
+    }
+
+    // ── Quantitative — Occlusion ─────────────────────────────────────────
+    final OcclusionRow? peakRow =
+        s.infusionOcclusionRows.isNotEmpty ? s.infusionOcclusionRows[0] : null;
+    final OcclusionRow? timeRow =
+        s.infusionOcclusionRows.length > 1 ? s.infusionOcclusionRows[1] : null;
+
+    if (peakRow == null) {
+      map['{occ_avg_peak}'] = 'N/A';
+      map['{occ_sta_peak}'] = 'N/A';
+      map['{occ_unc_peak}'] = 'N/A';
+    } else {
+      final double avg = peakRow.computedAverage;
+      map['{occ_avg_peak}'] = avg.toStringAsFixed(2);
+      map['{occ_sta_peak}'] = peakRow.status == true
+          ? 'PASS'
+          : peakRow.status == false
+              ? 'FAIL'
+              : 'N/A';
+      map['{occ_unc_peak}'] = _typeA(peakRow.reads, decimals: 4);
+    }
+
+    if (timeRow == null) {
+      map['{occ_avg_time}'] = 'N/A';
+      map['{occ_sta_time}'] = 'N/A';
+      map['{occ_unc_time}'] = 'N/A';
+    } else {
+      final double avg = timeRow.computedAverage;
+      map['{occ_avg_time}'] = avg.toStringAsFixed(2);
+      map['{occ_sta_time}'] = timeRow.status == true
+          ? 'PASS'
+          : timeRow.status == false
+              ? 'FAIL'
+              : 'N/A';
+      map['{occ_unc_time}'] = _typeA(timeRow.reads, decimals: 4);
+    }
+
+    return map;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PATCH DOCUMENT
   // ═══════════════════════════════════════════════════════════════════════════
 

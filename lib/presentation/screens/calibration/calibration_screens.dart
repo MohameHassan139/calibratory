@@ -348,11 +348,18 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
   bool get _isSyringe => _ctrl.session.value?.deviceType == 'Syringe Pumps';
   bool get _isSphygmo => _ctrl.session.value?.deviceType == 'Sphygmomanometers';
   bool get _isEcgMachine => _ctrl.session.value?.deviceType == 'ECG Machines';
+  bool get _isInfusion => _ctrl.session.value?.deviceType == 'Infusion Pumps';
 
   @override
   void initState() {
     super.initState();
-    if (_isEcgMachine) {
+    if (_isInfusion) {
+      _results = {
+        for (var item in InfusionConstants.qualitativeItems)
+          item: ItemStatus.pass,
+      };
+      _ecgResults = {};
+    } else if (_isEcgMachine) {
       // ECG Machine has both visual + arrhythmia items in one combined map
       _results = {
         for (var item in EcgMachineConstants.visualItems) item: ItemStatus.pass,
@@ -388,6 +395,11 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
     _ctrl.updateQualitative(_results);
     _ctrl.updateEcgRepresentation(_ecgResults);
 
+    if (_isInfusion) {
+      Get.toNamed(AppRoutes.infusionFlowRate);
+      return;
+    }
+
     if (_isEcgMachine) {
       Get.toNamed(AppRoutes.ecgMachineHR);
       return;
@@ -421,10 +433,57 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isInfusion) return _buildInfusionQual(context);
     if (_isEcgMachine) return _buildEcgMachineQual(context);
     if (_isSphygmo) return _buildSphygmoQual(context);
     if (_isSyringe) return _buildSyringeQual(context);
     return _buildMonitorQual(context);
+  }
+
+  // ── Infusion Pump Qualitative ────────────────────────────────────────────
+  Widget _buildInfusionQual(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Qualitative Test'),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(40),
+          child: CalibrationStepBar(
+            totalSteps: 3,
+            currentStep: 0,
+            stepLabels: ['Qualitative', 'Flow Rate', 'Occlusion'],
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _infoBanner(
+                'Select Pass / Fail / N/A for each infusion pump component.'),
+            const SizedBox(height: 16),
+            SectionCard(
+              title: 'Visual Inspection',
+              icon: Icons.checklist_outlined,
+              children: InfusionConstants.qualitativeItems
+                  .map((item) => QualRow(
+                        item: item,
+                        value: _results[item]!,
+                        onChanged: (v) => setState(() => _results[item] = v),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _next,
+                child: const Text('Next: Flow Rate Measurement'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── ECG Machine Qualitative ──────────────────────────────────────────────

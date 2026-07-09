@@ -192,6 +192,12 @@ class CalibrationSession {
   // ── ECG Machine — heart rate rows (6 rows: 40,60,80,100,150,200 BPM) ───
   List<MeasurementRow> ecgMachineHrRows;
 
+  // ── Infusion Pump — flow rate rows (6 rows: 30,60,100,240,300,600 mL/hr)
+  List<MeasurementRow> infusionFlowRows;
+
+  // ── Infusion Pump — occlusion rows ([0]=peak mmHg, [1]=time sec) ────────
+  List<OcclusionRow> infusionOcclusionRows;
+
   // Notes
   String notes;
 
@@ -240,6 +246,8 @@ class CalibrationSession {
     this.syringeOcclusionRows = const [],
     this.sphygmoStaticRows = const [],
     this.ecgMachineHrRows = const [],
+    this.infusionFlowRows = const [],
+    this.infusionOcclusionRows = const [],
     this.notes = '',
     String? hospitalName,
     this.testDate,
@@ -308,6 +316,9 @@ class CalibrationSession {
             syringeOcclusionRows.map((r) => r.toMap()).toList(),
         'sphygmoStaticRows': sphygmoStaticRows.map((r) => r.toMap()).toList(),
         'ecgMachineHrRows': ecgMachineHrRows.map((r) => r.toMap()).toList(),
+        'infusionFlowRows': infusionFlowRows.map((r) => r.toMap()).toList(),
+        'infusionOcclusionRows':
+            infusionOcclusionRows.map((r) => r.toMap()).toList(),
         'notes': notes,
         'hospitalName': hospitalName,
         'testDate': testDate != null ? Timestamp.fromDate(testDate!) : null,
@@ -397,6 +408,12 @@ class CalibrationSession {
           .toList(),
       ecgMachineHrRows: (d['ecgMachineHrRows'] as List? ?? [])
           .map((e) => MeasurementRow.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      infusionFlowRows: (d['infusionFlowRows'] as List? ?? [])
+          .map((e) => MeasurementRow.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      infusionOcclusionRows: (d['infusionOcclusionRows'] as List? ?? [])
+          .map((e) => OcclusionRow.fromMap(e as Map<String, dynamic>))
           .toList(),
       notes: d['notes'] ?? '',
       overallResult: d['overallResult'] as String?,

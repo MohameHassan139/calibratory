@@ -34,6 +34,11 @@ class AppRoutes {
   // ── ECG Machine calibration steps ───────────────────────────────────────
   static const String ecgMachineHR = '/calibration/ecg-machine/heart-rate';
   static const String ecgMachineSummary = '/calibration/ecg-machine/summary';
+
+  // ── Infusion Pump calibration steps ─────────────────────────────────────
+  static const String infusionFlowRate = '/calibration/infusion/flow-rate';
+  static const String infusionOcclusion = '/calibration/infusion/occlusion';
+  static const String infusionSummary = '/calibration/infusion/summary';
 }
 
 // lib/core/constants/app_strings.dart
@@ -343,4 +348,56 @@ class EcgMachineConstants {
     final tol = setting * 5 / 100;
     return [setting - tol, setting + tol];
   }
+}
+
+/// Constants specific to Infusion Pump calibration.
+class InfusionConstants {
+  // ── Qualitative test items (Visual Inspection) ───────────────────────────
+  static const List<String> qualitativeItems = [
+    'Chassis/Housing',
+    'Controls /Switches',
+    'Mount',
+    'Door/Misloaded Infusion Set',
+    'Casters/Brakes',
+    'Battery/charger',
+    'AC plug',
+    'Indicator/Displays',
+    'Line Cord',
+    'Labeling',
+    'Cables',
+    'Air-in-Line',
+    'Screen',
+    'Empty Container',
+    'Flow-Stop Mechanism(s)',
+    'Infusion Complete',
+  ];
+
+  // ── Flow-rate setting values (mL/hr) ─────────────────────────────────────
+  static const List<double> flowSettings = [30, 60, 100, 240, 300, 600];
+
+  // ── Flow-rate accepted ranges (const ±9%) ────────────────────────────────
+  static const List<List<double>> flowAcceptedRanges = [
+    [27.3, 32.7], // 30  mL/hr
+    [54.6, 65.4], // 60  mL/hr
+    [91.0, 109.0], // 100 mL/hr
+    [218.4, 261.6], // 240 mL/hr
+    [273.0, 327.0], // 300 mL/hr
+    [546.0, 654.0], // 600 mL/hr
+  ];
+
+  /// Returns the accepted range for a given flow setting value.
+  static List<double> flowAcceptedRange(double setting) {
+    for (int i = 0; i < flowSettings.length; i++) {
+      if ((flowSettings[i] - setting).abs() < 0.01) {
+        return flowAcceptedRanges[i];
+      }
+    }
+    // Fallback: ±9%
+    final tol = setting * 9 / 100;
+    return [setting - tol, setting + tol];
+  }
+
+  // ── Occlusion accepted limits (same as syringe) ───────────────────────────
+  static const double occPeakAcceptedMax = 723.8; // < 723.8 mmHg
+  static const double occTimeAcceptedMax = 12.0; // <= 12 sec
 }

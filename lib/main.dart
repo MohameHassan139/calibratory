@@ -25,6 +25,7 @@ import 'presentation/screens/stats/calibration_stats_screen.dart';
 import 'presentation/screens/calibration/syringe_screens.dart';
 import 'presentation/screens/calibration/sphygmomanometer_screens.dart';
 import 'presentation/screens/calibration/ecg_machine_screens.dart';
+import 'presentation/screens/calibration/infusion_screens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -287,6 +288,85 @@ class CalibOrtyApp extends StatelessWidget {
           name: AppRoutes.ecgMachineSummary,
           page: () => const EcgMachineSummaryScreen(),
         ),
+
+        // ── Infusion Pump calibration flow ────────────────────────────────
+        GetPage(
+          name: AppRoutes.infusionFlowRate,
+          page: () {
+            final ctrl = Get.find<CalibrationController>();
+            return MeasurementTableScreen(
+              title: 'Flow Rate Measurement',
+              unit: 'mL/hr',
+              settings: List<double>.from(InfusionConstants.flowSettings),
+              acceptedRangeFunc: InfusionConstants.flowAcceptedRange,
+              initialRows: ctrl.session.value?.infusionFlowRows ?? [],
+              onSave: ctrl.updateInfusionFlowRows,
+              nextRoute: AppRoutes.infusionOcclusion,
+              stepIndex: 1,
+              totalSteps: 3,
+              stepLabels: const ['Qualitative', 'Flow Rate', 'Occlusion'],
+              nextButtonLabel: 'Next: Occlusion Pressure',
+            );
+          },
+        ),
+
+        GetPage(
+          name: AppRoutes.infusionOcclusion,
+          page: () {
+            final ctrl = Get.find<CalibrationController>();
+            final existingOcc = ctrl.session.value?.infusionOcclusionRows ?? [];
+            final initRows = existingOcc.isNotEmpty
+                ? existingOcc
+                    .asMap()
+                    .entries
+                    .map((e) => MeasurementRow(
+                          settingValue: e.key.toDouble(),
+                          reads: List<double>.from(e.value.reads),
+                          average: e.value.average,
+                          status: e.value.status,
+                        ))
+                    .toList()
+                : [
+                    MeasurementRow(settingValue: 0), // Peak pressure
+                    MeasurementRow(settingValue: 1), // Time to alarm
+                  ];
+            return MeasurementTableScreen(
+              title: 'Occlusion Pressure',
+              unit: 'mmHg / sec',
+              settings: const [0, 1],
+              acceptedRangeFunc: _infusionOcclusionRange,
+              initialRows: initRows,
+              onSave: (rows) => ctrl.updateInfusionOcclusionRows(
+                rows
+                    .asMap()
+                    .entries
+                    .map((e) => OcclusionRow(
+                          label: e.key == 0
+                              ? 'Peak value (mmHg)'
+                              : 'Time to Alarm (sec)',
+                          reads: e.value.reads,
+                          average: e.value.average,
+                          status: e.value.status,
+                        ))
+                    .toList(),
+              ),
+              nextRoute: AppRoutes.infusionSummary,
+              stepIndex: 2,
+              totalSteps: 3,
+              stepLabels: const ['Qualitative', 'Flow Rate', 'Occlusion'],
+              settingLabels: const [
+                'Peak value\n(mmHg)',
+                'Time to Alarm\n(sec)',
+              ],
+              nextButtonLabel: 'Complete & Review',
+            );
+          },
+        ),
+
+        GetPage(
+          name: AppRoutes.infusionSummary,
+          page: () => const InfusionSummaryScreen(),
+        ),
       ],
     );
   }
@@ -321,4 +401,17 @@ class CalibOrtyApp extends StatelessWidget {
     if (settingValue == 0) return [0, SyringeConstants.occPeakAcceptedMax];
     return [0, SyringeConstants.occTimeAcceptedMax];
   }
+
+  static List<double> _infusionOcclusionRange(double settingValue) {
+    if (settingValue == 0) return [0, InfusionConstants.occPeakAcceptedMax];
+    return [0, InfusionConstants.occTimeAcceptedMax];
+  }
 }
+
+
+// (27.3 -32.7)
+// (54.6 -65.4)
+// (91 -109)
+// (218.4  - 261.6)
+// (273  -  327)
+// (546  - 654)
