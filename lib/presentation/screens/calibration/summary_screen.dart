@@ -72,16 +72,29 @@ class _CalibrationSummaryScreenState extends State<CalibrationSummaryScreen> {
                     SummaryRow('Test Device S/N', session.testDeviceSerialNumber),
                   ],
                   const Divider(height: 16),
-                  SummaryRow(
-                      'HR Table', session.showHrTable ? '✓ Included' : '✗ NF'),
-                  SummaryRow('SPO2 Table',
-                      session.showSpo2Table ? '✓ Included' : '✗ NF'),
-                  SummaryRow('NIBP Table',
-                      session.showNibpTable ? '✓ Included' : '✗ NF'),
-                  SummaryRow('Respiration Table',
-                      session.showRespirationTable ? '✓ Included' : '✗ NF'),
-                  SummaryRow('Temp Tables',
-                      session.showTempTables ? '✓ Included' : '✗ NF'),
+                  if (session.deviceType == 'Syringe Pumps') ...[
+                    SummaryRow(
+                        'Flow Rate Rows',
+                        session.syringeFlowRows.isNotEmpty
+                            ? '✓ ${session.syringeFlowRows.length} rows'
+                            : '✗ NF'),
+                    SummaryRow(
+                        'Occlusion Rows',
+                        session.syringeOcclusionRows.isNotEmpty
+                            ? '✓ ${session.syringeOcclusionRows.length} rows'
+                            : '✗ NF'),
+                  ] else ...[
+                    SummaryRow('HR Table',
+                        session.showHrTable ? '✓ Included' : '✗ NF'),
+                    SummaryRow('SPO2 Table',
+                        session.showSpo2Table ? '✓ Included' : '✗ NF'),
+                    SummaryRow('NIBP Table',
+                        session.showNibpTable ? '✓ Included' : '✗ NF'),
+                    SummaryRow('Respiration Table',
+                        session.showRespirationTable ? '✓ Included' : '✗ NF'),
+                    SummaryRow('Temp Tables',
+                        session.showTempTables ? '✓ Included' : '✗ NF'),
+                  ],
                 ],
               ),
             ),

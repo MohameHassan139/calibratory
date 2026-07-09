@@ -50,6 +50,8 @@ class MeasurementTableRow extends StatelessWidget {
   final VoidCallback onChanged;
   final bool isSelected;
   final VoidCallback? onToggleSelect;
+  /// When provided, shows this fixed label instead of the editable setting field.
+  final String? settingLabel;
 
   const MeasurementTableRow({
     super.key,
@@ -64,6 +66,7 @@ class MeasurementTableRow extends StatelessWidget {
     this.hasError = false,
     this.isSelected = false,
     this.onToggleSelect,
+    this.settingLabel,
   });
 
   Widget _inputCell({
@@ -152,24 +155,39 @@ class MeasurementTableRow extends StatelessWidget {
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
-          // Setting value — editable
-          _inputCell(
-            width: colSetting,
-            leftBorder: true,
-            bg: AppColors.surfaceVariant,
-            controller: settingController,
-            hintText: settingValue.toStringAsFixed(0),
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: AppColors.textPrimary,
-            ),
-            hintStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textHint,
-            ),
-          ),
+          // Setting value — editable or fixed label
+          settingLabel != null
+              ? _cell(
+                  width: colSetting,
+                  leftBorder: true,
+                  bg: AppColors.surfaceVariant,
+                  child: Text(
+                    settingLabel!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                )
+              : _inputCell(
+                  width: colSetting,
+                  leftBorder: true,
+                  bg: AppColors.surfaceVariant,
+                  controller: settingController,
+                  hintText: settingValue.toStringAsFixed(0),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textHint,
+                  ),
+                ),
           // Read inputs ×5
           ...List.generate(
             5,

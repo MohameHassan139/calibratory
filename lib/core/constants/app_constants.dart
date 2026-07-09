@@ -20,6 +20,12 @@ class AppRoutes {
   static const String history = '/history';
   static const String profile = '/profile';
   static const String calibrationStats = '/calibration-stats';
+
+  // ── Syringe Pump calibration steps ──────────────────────────────────────
+  static const String syringeQualitative = '/calibration/syringe/qualitative';
+  static const String syringeFlowRate = '/calibration/syringe/flow-rate';
+  static const String syringeOcclusion = '/calibration/syringe/occlusion';
+  static const String syringeSummary = '/calibration/syringe/summary';
 }
 
 // lib/core/constants/app_strings.dart
@@ -180,4 +186,54 @@ class MonitorConstants {
     'Oxygen Cylinder',
     'Electrical Safety',
   ];
+}
+
+/// Constants specific to Syringe Pump calibration.
+class SyringeConstants {
+  // ── Qualitative test items (Visual Inspection) ───────────────────────────
+  static const List<String> qualitativeItems = [
+    'Chassis/Housing',
+    'Controls /Switches',
+    'Mount',
+    'Door/Misloaded Infusion Set',
+    'Casters/Brakes',
+    'Battery/charger',
+    'AC plug',
+    'Indicator/Displays',
+    'Line Cord',
+    'Labeling',
+    'Cables',
+    'Air-in-Line',
+    'Screen',
+    'Empty Container',
+    'Flow-Stop Mechanism(s)',
+    'Infusion Complete',
+  ];
+
+  // ── Flow-rate setting values (mL/hr) ─────────────────────────────────────
+  static const List<double> flowSettings = [10.0, 15.0, 20.0];
+
+  // ── Flow-rate accepted ranges ±9% ────────────────────────────────────────
+  // Const values: (9.1 – 10.9), (13.65 – 16.35), (18.2 – 21.8)
+  static const List<List<double>> flowAcceptedRanges = [
+    [9.1, 10.9], // 10 mL/hr ± 9%
+    [13.65, 16.35], // 15 mL/hr ± 9%
+    [18.2, 21.8], // 20 mL/hr ± 9%
+  ];
+
+  /// Returns the accepted range for a given flow setting value.
+  static List<double> flowAcceptedRange(double setting) {
+    for (int i = 0; i < flowSettings.length; i++) {
+      if ((flowSettings[i] - setting).abs() < 0.01) {
+        return flowAcceptedRanges[i];
+      }
+    }
+    // Fallback: ±9%
+    final tol = setting * 9 / 100;
+    return [setting - tol, setting + tol];
+  }
+
+  // ── Occlusion accepted limits ─────────────────────────────────────────────
+  static const double occPeakAcceptedMax = 723.8; // < 723.8 mmHg
+  static const double occTimeAcceptedMax = 12.0; // <= 12 sec
 }

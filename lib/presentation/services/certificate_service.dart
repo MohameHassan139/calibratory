@@ -52,6 +52,45 @@ class CertificateService {
     return path;
   }
 
+  /// Generate a filled syringe pump certificate (.docx) for [session].
+  /// Returns the absolute path of the written file.
+  static Future<String> generateSyringeCertificate(
+      CalibrationSession session) async {
+    final ByteData data =
+        await rootBundle.load('assets/syringe_certificate.docx');
+    final Uint8List templateBytes = data.buffer.asUint8List();
+
+    final Archive archive = ZipDecoder().decodeBytes(templateBytes);
+
+    final List<ArchiveFile> newFiles = [];
+    for (final file in archive) {
+      if (file.name == 'word/document.xml') {
+        final String xml =
+            utf8.decode(file.content as List<int>, allowMalformed: true);
+        final String patched = _patchSyringeDocument(xml, session);
+        final List<int> bytes = utf8.encode(patched);
+        newFiles.add(ArchiveFile(file.name, bytes.length, bytes));
+      } else {
+        newFiles.add(file);
+      }
+    }
+
+    final Archive newArchive = Archive();
+    for (final f in newFiles) {
+      newArchive.addFile(f);
+    }
+    final List<int>? outBytes = ZipEncoder().encode(newArchive);
+    if (outBytes == null)
+      throw Exception('Syringe certificate ZIP encoding failed');
+
+    final dir = await getApplicationDocumentsDirectory();
+    final String uid = const Uuid().v4().substring(0, 8);
+    final String fileName = 'syringe_cert_${session.serialNumber}_$uid.docx';
+    final String path = '${dir.path}/$fileName';
+    await File(path).writeAsBytes(outBytes);
+    return path;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // BUILD REPLACEMENT MAP
   // ═══════════════════════════════════════════════════════════════════════════
@@ -463,6 +502,155 @@ class CertificateService {
     }
 
     return map;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD SYRINGE REPLACEMENT MAP
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static Map<String, String> _buildSyringeMap(CalibrationSession s) {
+    final map = <String, String>{};
+
+    // ── Header fields (same as monitor certificate) ───────────────────────
+    map['{HospitalName}'] =
+        s.hospitalName.isNotEmpty ? s.hospitalName : s.customerName;
+    map['{Manufacturer}'] = s.manufacturer;
+    map['{Model}'] = s.model;
+    map['{SerialNo}'] = s.serialNumber;
+    map['{Department}'] = s.department;
+    map['{VisitDate}'] = _fmtDate(s.visitDate);
+    map['{Visit Date}'] = _fmtDate(s.visitDate);
+    map['{OrderDate}'] = _fmtDate(s.orderDate);
+    map['{Order Date}'] = _fmtDate(s.orderDate);
+    map['{EngineerName}'] = s.engineerName;
+    map['{CertNo}'] = s.certificateNumber ?? '';
+
+    // Testing device
+    map['{TestDeviceManufacturer}'] = s.testDeviceManufacturer;
+    map['{TestDeviceMfr}'] = s.testDeviceManufacturer;
+    map['{TestDeviceModel}'] = s.testDeviceModel;
+    map['{TestDeviceSerialNo}'] = s.testDeviceSerialNumber;
+    map['{TestDeviceSerialNumber}'] = s.testDeviceSerialNumber;
+
+    // Test info
+    map['{TestType}'] = s.testType;
+    map['{TestLab}'] = s.testLab;
+    map['{LabName}'] = s.testLab;
+
+    // Overall results
+    map['{Final_Qualitative}'] = s.qualitativeResult ?? 'N/F';
+    map['{Final_Quantitative}'] = s.quantitativeResult ?? 'N/F';
+    map['{Final}'] = s.overallResult ?? 'N/F';
+    map['{QualResult}'] = s.qualitativeResult ?? 'N/F';
+    map['{QuantResult}'] = s.quantitativeResult ?? 'N/F';
+    map['{OverallResult}'] = s.overallResult ?? 'N/F';
+
+    // ── Qualitative — Visual Inspection (syringe pump items) ──────────────
+    final q = s.qualitativeResults;
+    map['{Cha}'] = _qs(q['Chassis/Housing']);
+    map['{Con}'] = _qs(q['Controls /Switches']);
+    map['{Mou}'] = _qs(q['Mount']);
+    map['{Doo}'] = _qs(q['Door/Misloaded Infusion Set']);
+    map['{cas}'] = _qs(q['Casters/Brakes']);
+    map['{Bat}'] = _qs(q['Battery/charger']);
+    map['{AC}'] = _qs(q['AC plug']);
+    map['{Ind}'] = _qs(q['Indicator/Displays']);
+    map['{Lin}'] = _qs(q['Line Cord']);
+    map['{Lab}'] = _qs(q['Labeling']);
+    map['{Cab}'] = _qs(q['Cables']);
+    map['{Air}'] = _qs(q['Air-in-Line']);
+    map['{Scr}'] = _qs(q['Screen']);
+    map['{Emp}'] = _qs(q['Empty Container']);
+    map['{Flo}'] = _qs(q['Flow-Stop Mechanism(s)']);
+    map['{Inf}'] = _qs(q['Infusion Complete']);
+
+    // ── Quantitative — Flow Rate Measurement (10, 15, 20 mL/hr) ──────────
+    const flowSettings = SyringeConstants.flowSettings;
+    const flowRanges = SyringeConstants.flowAcceptedRanges;
+
+    final suffixes = ['10', '15', '20'];
+    for (int i = 0; i < flowSettings.length; i++) {
+      final String suf = suffixes[i];
+      final double setting = flowSettings[i];
+      final List<double> accepted = flowRanges[i];
+      final String accStr = '(${accepted[0]}  -  ${accepted[1]})';
+
+      final MeasurementRow? row =
+          i < s.syringeFlowRows.length ? s.syringeFlowRows[i] : null;
+
+      if (row == null) {
+        map['{flow_set_$suf}'] = setting.toStringAsFixed(0);
+        map['{flow_avg_$suf}'] = 'N/A';
+        map['{flow_err_$suf}'] = 'N/A';
+        map['{flow_acc_$suf}'] = accStr;
+        map['{flow_sta_$suf}'] = 'N/A';
+        map['{flow_unc_$suf}'] = 'N/A';
+      } else {
+        final double avg = row.computedAverage;
+        final double err = (setting - avg).abs();
+        final double errPct = setting > 0 ? (err / setting) * 100 : 0;
+        map['{flow_set_$suf}'] = setting.toStringAsFixed(0);
+        map['{flow_avg_$suf}'] = avg.toStringAsFixed(3);
+        map['{flow_err_$suf}'] = errPct.toStringAsFixed(2);
+        map['{flow_acc_$suf}'] = accStr;
+        map['{flow_sta_$suf}'] = row.status == true
+            ? 'PASS'
+            : row.status == false
+                ? 'FAIL'
+                : 'N/A';
+        map['{flow_unc_$suf}'] = _typeA(row.reads, decimals: 4);
+      }
+    }
+
+    // ── Quantitative — Occlusion Pressure Measurement ─────────────────────
+    // Row index 0 = Peak value (mmHg), index 1 = Time to Alarm (sec)
+    final OcclusionRow? peakRow =
+        s.syringeOcclusionRows.isNotEmpty ? s.syringeOcclusionRows[0] : null;
+    final OcclusionRow? timeRow =
+        s.syringeOcclusionRows.length > 1 ? s.syringeOcclusionRows[1] : null;
+
+    // Peak value
+    if (peakRow == null) {
+      map['{occ_avg_peak}'] = 'N/A';
+      map['{occ_sta_peak}'] = 'N/A';
+      map['{occ_unc_peak}'] = 'N/A';
+    } else {
+      final double avg = peakRow.computedAverage;
+      map['{occ_avg_peak}'] = avg.toStringAsFixed(2);
+      map['{occ_sta_peak}'] = peakRow.status == true
+          ? 'PASS'
+          : peakRow.status == false
+              ? 'FAIL'
+              : 'N/A';
+      map['{occ_unc_peak}'] = _typeA(peakRow.reads, decimals: 4);
+    }
+
+    // Time to alarm
+    if (timeRow == null) {
+      map['{occ_avg_time}'] = 'N/A';
+      map['{occ_sta_time}'] = 'N/A';
+      map['{occ_unc_time}'] = 'N/A';
+    } else {
+      final double avg = timeRow.computedAverage;
+      map['{occ_avg_time}'] = avg.toStringAsFixed(2);
+      map['{occ_sta_time}'] = timeRow.status == true
+          ? 'PASS'
+          : timeRow.status == false
+              ? 'FAIL'
+              : 'N/A';
+      map['{occ_unc_time}'] = _typeA(timeRow.reads, decimals: 4);
+    }
+
+    return map;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PATCH SYRINGE DOCUMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static String _patchSyringeDocument(String xml, CalibrationSession s) {
+    final Map<String, String> replacements = _buildSyringeMap(s);
+    return _collapseAndReplace(xml, replacements);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -105,6 +105,40 @@ class NIBPRow {
       );
 }
 
+/// Holds one occlusion measurement row (peak pressure or time-to-alarm).
+/// Stores up to 5 individual reads.
+class OcclusionRow {
+  final String label; // e.g. 'Peak value (mmHg)' or 'Time to Alarm (sec)'
+  final List<double> reads; // up to 5 reads
+  double? average;
+  bool? status; // true = pass, false = fail, null = N/F
+
+  OcclusionRow({
+    required this.label,
+    this.reads = const [],
+    this.average,
+    this.status,
+  });
+
+  double get computedAverage =>
+      reads.isEmpty ? 0 : reads.reduce((a, b) => a + b) / reads.length;
+
+  Map<String, dynamic> toMap() => {
+        'label': label,
+        'reads': reads,
+        'average': average,
+        'status': status,
+      };
+
+  factory OcclusionRow.fromMap(Map<String, dynamic> m) => OcclusionRow(
+        label: m['label'] as String? ?? '',
+        reads: List<double>.from(
+            (m['reads'] as List? ?? []).map((e) => (e as num).toDouble())),
+        average: m['average'] != null ? (m['average'] as num).toDouble() : null,
+        status: m['status'],
+      );
+}
+
 class CalibrationSession {
   String? id;
   String engineerId;
@@ -144,6 +178,13 @@ class CalibrationSession {
   List<MeasurementRow> respirationRows;
   List<MeasurementRow> temp1Rows;
   List<MeasurementRow> temp2Rows;
+
+  // ── Syringe pump — flow rate rows (3 rows: 10, 15, 20 mL/hr) ────────────
+  List<MeasurementRow> syringeFlowRows;
+
+  // ── Syringe pump — occlusion pressure rows ───────────────────────────────
+  // [0] = Peak value (mmHg), [1] = Time to Alarm (sec)
+  List<OcclusionRow> syringeOcclusionRows;
 
   // Notes
   String notes;
@@ -189,6 +230,8 @@ class CalibrationSession {
     this.respirationRows = const [],
     this.temp1Rows = const [],
     this.temp2Rows = const [],
+    this.syringeFlowRows = const [],
+    this.syringeOcclusionRows = const [],
     this.notes = '',
     String? hospitalName,
     this.testDate,
@@ -252,6 +295,9 @@ class CalibrationSession {
         'respirationRows': respirationRows.map((r) => r.toMap()).toList(),
         'temp1Rows': temp1Rows.map((r) => r.toMap()).toList(),
         'temp2Rows': temp2Rows.map((r) => r.toMap()).toList(),
+        'syringeFlowRows': syringeFlowRows.map((r) => r.toMap()).toList(),
+        'syringeOcclusionRows':
+            syringeOcclusionRows.map((r) => r.toMap()).toList(),
         'notes': notes,
         'hospitalName': hospitalName,
         'testDate': testDate != null ? Timestamp.fromDate(testDate!) : null,
@@ -329,6 +375,12 @@ class CalibrationSession {
           .toList(),
       temp2Rows: (d['temp2Rows'] as List? ?? [])
           .map((e) => MeasurementRow.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      syringeFlowRows: (d['syringeFlowRows'] as List? ?? [])
+          .map((e) => MeasurementRow.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      syringeOcclusionRows: (d['syringeOcclusionRows'] as List? ?? [])
+          .map((e) => OcclusionRow.fromMap(e as Map<String, dynamic>))
           .toList(),
       notes: d['notes'] ?? '',
       overallResult: d['overallResult'] as String?,

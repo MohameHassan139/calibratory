@@ -338,21 +338,38 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
   late Map<String, ItemStatus> _results;
   late Map<String, ItemStatus> _ecgResults;
 
+  bool get _isSyringe => _ctrl.session.value?.deviceType == 'Syringe Pumps';
+
   @override
   void initState() {
     super.initState();
-    _results = {
-      for (var item in MonitorConstants.qualitativeItems) item: ItemStatus.pass,
-    };
-    _ecgResults = {
-      for (var item in MonitorConstants.ecgRepresentationItems)
-        item: ItemStatus.pass,
-    };
+    if (_isSyringe) {
+      _results = {
+        for (var item in SyringeConstants.qualitativeItems)
+          item: ItemStatus.pass,
+      };
+      _ecgResults = {};
+    } else {
+      _results = {
+        for (var item in MonitorConstants.qualitativeItems)
+          item: ItemStatus.pass,
+      };
+      _ecgResults = {
+        for (var item in MonitorConstants.ecgRepresentationItems)
+          item: ItemStatus.pass,
+      };
+    }
   }
 
   void _next() {
     _ctrl.updateQualitative(_results);
     _ctrl.updateEcgRepresentation(_ecgResults);
+
+    if (_isSyringe) {
+      Get.toNamed(AppRoutes.syringeFlowRate);
+      return;
+    }
+
     final s = _ctrl.session.value!;
     if (s.showHrTable) {
       Get.toNamed(AppRoutes.calibrationHR);
@@ -371,6 +388,62 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isSyringe) return _buildSyringeQual(context);
+    return _buildMonitorQual(context);
+  }
+
+  // ── Syringe Pump Qualitative ─────────────────────────────────────────────
+  Widget _buildSyringeQual(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Qualitative Test'),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(40),
+          child: CalibrationStepBar(
+            totalSteps: 3,
+            currentStep: 0,
+            stepLabels: [
+              'Qualitative',
+              'Flow Rate',
+              'Occlusion',
+            ],
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            _infoBanner(
+                'Select Pass / Fail / N/A for each syringe pump component.'),
+            const SizedBox(height: 16),
+            SectionCard(
+              title: 'Visual Inspection',
+              icon: Icons.checklist_outlined,
+              children: SyringeConstants.qualitativeItems
+                  .map((item) => QualRow(
+                        item: item,
+                        value: _results[item]!,
+                        onChanged: (v) => setState(() => _results[item] = v),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _next,
+                child: const Text('Next: Flow Rate Measurement'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Patient Monitor Qualitative ──────────────────────────────────────────
+  Widget _buildMonitorQual(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Qualitative Test'),
@@ -395,31 +468,8 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Info banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.info.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-                border:
-                    Border.all(color: AppColors.info.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline,
-                      color: AppColors.info, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Select Pass / Fail / N/A for each item. Cable availability determines which measurement tables will be shown.',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.info.withValues(alpha: 0.9)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _infoBanner(
+                'Select Pass / Fail / N/A for each item. Cable availability determines which measurement tables will be shown.'),
             const SizedBox(height: 16),
             SectionCard(
               title: 'Qualitative Test',
@@ -466,6 +516,30 @@ class _QualitativeTestScreenState extends State<QualitativeTestScreen> {
       ),
     );
   }
+
+  Widget _infoBanner(String text) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.info.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: AppColors.info, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                  fontSize: 12, color: AppColors.info.withValues(alpha: 0.9)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Generic Measurement Table Screen ─────────────────────────────────────────
@@ -480,6 +554,14 @@ class MeasurementTableScreen extends StatefulWidget {
   final String nextRoute;
   final int stepIndex;
   final bool isVisible;
+  final int totalSteps;
+  final List<String> stepLabels;
+  final String nextButtonLabel;
+
+  /// Optional per-row label overrides for the setting column.
+  /// When provided, the corresponding row shows a fixed label instead of
+  /// an editable numeric field. Length must match [settings].
+  final List<String>? settingLabels;
 
   const MeasurementTableScreen({
     super.key,
@@ -492,6 +574,18 @@ class MeasurementTableScreen extends StatefulWidget {
     required this.nextRoute,
     required this.stepIndex,
     this.isVisible = true,
+    this.totalSteps = 7,
+    this.stepLabels = const [
+      'Public Data',
+      'Qualitative',
+      'Heart Rate',
+      'SPO2',
+      'NIBP',
+      'Respiration',
+      'Temperature',
+    ],
+    this.nextButtonLabel = 'Next',
+    this.settingLabels,
   });
 
   @override
@@ -616,17 +710,9 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(40),
           child: CalibrationStepBar(
-            totalSteps: 7,
+            totalSteps: widget.totalSteps,
             currentStep: widget.stepIndex,
-            stepLabels: const [
-              'Public Data',
-              'Qualitative',
-              'Heart Rate',
-              'SPO2',
-              'NIBP',
-              'Respiration',
-              'Temperature',
-            ],
+            stepLabels: widget.stepLabels,
           ),
         ),
       ),
@@ -753,6 +839,10 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
                                 avg: rows[i].average,
                                 status: rows[i].status,
                                 isLast: i == rows.length - 1,
+                                settingLabel: widget.settingLabels != null &&
+                                        i < widget.settingLabels!.length
+                                    ? widget.settingLabels![i]
+                                    : null,
                                 onChanged: () => setState(() {
                                   final sv = double.tryParse(
                                           settingControllers[i].text.trim()) ??
@@ -798,7 +888,7 @@ class _MeasurementTableScreenState extends State<MeasurementTableScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _computeAndSave,
-                child: const Text('Next'),
+                child: Text(widget.nextButtonLabel),
               ),
             ),
           ),

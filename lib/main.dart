@@ -4,6 +4,7 @@ import 'firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'data/models/models.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/controllers/auth_controller.dart';
@@ -21,6 +22,7 @@ import 'presentation/screens/price/price_offer_screen.dart';
 import 'presentation/screens/history/history_screen.dart';
 import 'presentation/screens/profile/profile_screen.dart';
 import 'presentation/screens/stats/calibration_stats_screen.dart';
+import 'presentation/screens/calibration/syringe_screens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -145,6 +147,90 @@ class CalibOrtyApp extends StatelessWidget {
         GetPage(
             name: AppRoutes.calibrationStats,
             page: () => const CalibrationStatsScreen()),
+
+        // ── Syringe Pump calibration flow ────────────────────────────────
+        // Flow Rate — reuses the same MeasurementTableScreen as HR/SPO2/Resp
+        GetPage(
+          name: AppRoutes.syringeFlowRate,
+          page: () {
+            final ctrl = Get.find<CalibrationController>();
+            return MeasurementTableScreen(
+              title: 'Flow Rate Measurement',
+              unit: 'mL/hr',
+              settings: List<double>.from(SyringeConstants.flowSettings),
+              acceptedRangeFunc: SyringeConstants.flowAcceptedRange,
+              initialRows: ctrl.session.value?.syringeFlowRows ?? [],
+              onSave: ctrl.updateSyringeFlowRows,
+              nextRoute: AppRoutes.syringeOcclusion,
+              stepIndex: 1,
+              totalSteps: 3,
+              stepLabels: const ['Qualitative', 'Flow Rate', 'Occlusion'],
+              nextButtonLabel: 'Next: Occlusion Pressure',
+            );
+          },
+        ),
+
+        // Occlusion — two rows (Peak mmHg, Time-to-alarm sec) via MeasurementTableScreen.
+        // Setting values encode row identity (0 = peak, 1 = time).
+        // acceptedRangeFunc returns [0, limit] so avg <= limit means PASS.
+        GetPage(
+          name: AppRoutes.syringeOcclusion,
+          page: () {
+            final ctrl = Get.find<CalibrationController>();
+            // Convert OcclusionRow list → MeasurementRow list (settingValue used as row id)
+            final existingOcc = ctrl.session.value?.syringeOcclusionRows ?? [];
+            final initRows = existingOcc.isNotEmpty
+                ? existingOcc
+                    .asMap()
+                    .entries
+                    .map((e) => MeasurementRow(
+                          settingValue: e.key.toDouble(),
+                          reads: List<double>.from(e.value.reads),
+                          average: e.value.average,
+                          status: e.value.status,
+                        ))
+                    .toList()
+                : [
+                    MeasurementRow(settingValue: 0), // Peak pressure
+                    MeasurementRow(settingValue: 1), // Time to alarm
+                  ];
+            return MeasurementTableScreen(
+              title: 'Occlusion Pressure',
+              unit: 'mmHg / sec',
+              settings: const [0, 1],
+              acceptedRangeFunc: _occlusionRange,
+              initialRows: initRows,
+              onSave: (rows) => ctrl.updateSyringeOcclusionRows(
+                rows
+                    .asMap()
+                    .entries
+                    .map((e) => OcclusionRow(
+                          label: e.key == 0
+                              ? 'Peak value (mmHg)'
+                              : 'Time to Alarm (sec)',
+                          reads: e.value.reads,
+                          average: e.value.average,
+                          status: e.value.status,
+                        ))
+                    .toList(),
+              ),
+              nextRoute: AppRoutes.syringeSummary,
+              stepIndex: 2,
+              totalSteps: 3,
+              stepLabels: const ['Qualitative', 'Flow Rate', 'Occlusion'],
+              settingLabels: const [
+                'Peak value\n(mmHg)',
+                'Time to Alarm\n(sec)'
+              ],
+              nextButtonLabel: 'Complete & Review',
+            );
+          },
+        ),
+
+        GetPage(
+          name: AppRoutes.syringeSummary,
+          page: () => const SyringeSummaryScreen(),
+        ),
       ],
     );
   }
@@ -170,5 +256,13 @@ class CalibOrtyApp extends StatelessWidget {
     final s = ctrl.session.value!;
     if (s.showTempTables) return AppRoutes.calibrationTemp;
     return AppRoutes.calibrationSummary;
+  }
+
+  /// Occlusion accepted range:
+  /// Row 0 (peak, mmHg) → [0, 723.8]   (pass when avg < 723.8)
+  /// Row 1 (time, sec)  → [0, 12.0]    (pass when avg <= 12)
+  static List<double> _occlusionRange(double settingValue) {
+    if (settingValue == 0) return [0, SyringeConstants.occPeakAcceptedMax];
+    return [0, SyringeConstants.occTimeAcceptedMax];
   }
 }
