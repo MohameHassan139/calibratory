@@ -190,8 +190,8 @@ class _PublicDataScreenState extends State<PublicDataScreen> {
               ),
               const SizedBox(height: 16),
               SectionCard(
-                title: 'Monitor Data',
-                icon: Icons.monitor_heart_outlined,
+                title: 'Devices ',
+                icon: Icons.device_hub,
                 children: [
                   // Device Type dropdown
                   DropdownButtonFormField<String>(

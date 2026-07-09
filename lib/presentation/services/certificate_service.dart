@@ -1,4 +1,5 @@
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -27,9 +28,9 @@ class CertificateService {
     final List<ArchiveFile> newFiles = [];
     for (final file in archive) {
       if (file.name == 'word/document.xml') {
-        final String xml = String.fromCharCodes(file.content as List<int>);
+        final String xml = utf8.decode(file.content as List<int>, allowMalformed: true);
         final String patched = _patchDocument(xml, session);
-        final List<int> bytes = patched.codeUnits;
+        final List<int> bytes = utf8.encode(patched);
         newFiles.add(ArchiveFile(file.name, bytes.length, bytes));
       } else {
         newFiles.add(file);

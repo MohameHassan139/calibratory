@@ -201,8 +201,8 @@ class CalibrationSession {
     this.testDeviceManufacturer = '',
     this.testDeviceModel = '',
     this.testDeviceSerialNumber = '',
-    this.testType = 'اختبار اداء وظيفي لجهاز شاشة مراقبة المريض',
-    this.testLab = 'معمل معايرة الأجهزة الطبية التابع لوحدة معايرة واستشارات الأجهزة الطبية (يوميك) التابعة لمركز الاستشارات الهندسية بكلية الهندسة جامعة المنيا',
+    this.testType = 'Performance Test for Patient Monitor',
+    this.testLab = 'Medical Equipment Calibration and Consultation Lab (UMECC), Faculty of Engineering, Minia University',
     required this.createdAt,
     this.status = 'draft',
   }) : hospitalName = hospitalName ?? customerName;
@@ -342,8 +342,8 @@ class CalibrationSession {
       testDeviceManufacturer: d['testDeviceManufacturer'] ?? '',
       testDeviceModel: d['testDeviceModel'] ?? '',
       testDeviceSerialNumber: d['testDeviceSerialNumber'] ?? '',
-      testType: d['testType'] ?? 'اختبار اداء وظيفي لجهاز شاشة مراقبة المريض',
-      testLab: d['testLab'] ?? 'معمل معايرة الأجهزة الطبية التابع لوحدة معايرة واستشارات الأجهزة الطبية (يوميك) التابعة لمركز الاستشارات الهندسية بكلية الهندسة جامعة المنيا',
+      testType: d['testType'] ?? 'Performance Test for Patient Monitor',
+      testLab: d['testLab'] ?? 'Medical Equipment Calibration and Consultation Lab (UMECC), Faculty of Engineering, Minia University',
       createdAt: (d['createdAt'] as Timestamp).toDate(),
       status: d['status'] ?? 'draft',
     );
